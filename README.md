@@ -26,6 +26,15 @@ uv run jupyter lab       # open the notebooks to try features on real data
 
 In VS Code, pick `.venv/bin/python` as the interpreter / notebook kernel.
 
+## Quick start
+
+```python
+import spectrum_toolkit as stk
+s = stk.load("data/A_A_1.asc")       # text, Excel or .mat; prints what it read
+```
+
+See `notebooks/` for worked examples.
+
 ## Layout
 
 ```

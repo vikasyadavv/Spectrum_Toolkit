@@ -7,7 +7,9 @@ requires-python = ">=3.11"
 authors = [{ name = "Vikas Yadav" }]
 dependencies = [
     "numpy>=1.26",
+    "openpyxl>=3.1",
     "scipy>=1.11",
+    "xlrd>=2.0",
 ]
 
 [dependency-groups]
@@ -26,4 +28,6 @@ build-backend = "hatchling.build"
 packages = ["src/spectrum_toolkit"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# Also run the examples written in docstrings, so documentation cannot go stale.
+testpaths = ["tests", "src"]
+addopts = "--doctest-modules"

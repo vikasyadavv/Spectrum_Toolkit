@@ -13,10 +13,16 @@ Never edit `uv.lock` by hand. Change it only with the commands below.
 
 ## Current direct dependencies (locked 2026-10-20)
 
+pandas is deliberately not used: our objects hold numpy arrays, and editing
+rows (trim, add, delete) will be methods on `Spectrum`/`SpectrumCollection`.
+Revisit if table editing grows beyond that.
+
 | Package | Locked | Minimum | Used for | Needed at runtime? |
 |---|---|---|---|---|
 | numpy | 2.5.4 | 1.26 | arrays, all numerical work | yes |
 | scipy | 1.18.1 | 1.11 | filters, sparse solvers, `.mat` files | yes |
+| openpyxl | 3.1.5 | 3.1 | reading `.xlsx` spreadsheets | yes |
+| xlrd | 2.0.2 | 2.0 | reading old `.xls` spreadsheets (v2 reads only .xls) | yes |
 | pytest | 9.1.1 | 8 | automatic tests | dev only |
 | jupyterlab | 4.6.4 | 4 | notebooks for trying features | dev only |
 | matplotlib | 3.11.2 | 3.8 | plots in notebooks (plotting module comes later) | dev only, for now |

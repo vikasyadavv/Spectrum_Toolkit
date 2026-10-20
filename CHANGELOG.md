@@ -3,7 +3,14 @@
 All notable changes, newest first. Versions follow `MAJOR.MINOR.PATCH`:
 until 1.0, MINOR goes up for each approved feature.
 
-## 0.0.1 (unreleased)
+## Unreleased
+
+- Feature 1b: `stk.load()` reads MATLAB .mat files, finding the x axis and spectra by shape (any variable names); `x=`/`y=` to choose by name. 12 new tests.
+- Feature 1: `stk.load()` for text files and Excel (.xlsx, .xls), with layout detection, decimal commas, headers, metadata and a fast path for large files.
+- New dependencies: openpyxl, xlrd.
+- Notebook `01_loading.ipynb`; 23 new tests (awkward files, large file, real data).
+
+## 0.0.1 (2026-10-20)
 
 - Project setup: uv environment with lock file, src layout, pytest, notebooks.
 - Core objects `Spectrum` and `SpectrumCollection`.

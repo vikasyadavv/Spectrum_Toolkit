@@ -10,3 +10,6 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Real data stays on this computer only (may be large or unpublished).
+data/
