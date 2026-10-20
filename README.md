@@ -14,7 +14,7 @@ Needs [uv](https://docs.astral.sh/uv/). On a Mac:
 ```bash
 brew install uv          # or: curl -LsSf https://astral.sh/uv/install.sh | sh
 cd ~/Downloads/VSCode/Spectrum_Toolkit
-uv sync                  # creates .venv with Python 3.12 and every dependency
+uv sync                  # creates .venv with Python 3.13 and every dependency
 ```
 
 ## Everyday commands
