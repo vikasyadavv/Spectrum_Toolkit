@@ -85,6 +85,14 @@ async def _value_error(request: Request, exc: ValueError):
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
+@app.exception_handler(Exception)
+async def _unexpected_error(request: Request, exc: Exception):
+    """Anything else is a bug in the toolkit: answer 500 with what went wrong
+    (instead of a bare "Internal Server Error"), so it can be reported and fixed."""
+    return JSONResponse(status_code=500, content={
+        "detail": f"Unexpected error, please report it: {type(exc).__name__}: {exc}"})
+
+
 # ------------------------------------------------------------------ data <-> JSON
 def _numbers(a: np.ndarray) -> list:
     """Array to a JSON list; missing or infinite values become null (JSON has no NaN)."""
@@ -139,6 +147,11 @@ def from_json(d: dict) -> SpectrumCollection:
 def _single_or_all(c: SpectrumCollection) -> Spectrum | SpectrumCollection:
     """One-spectrum collections are processed as a Spectrum (some methods differ, e.g. despike)."""
     return c[0] if len(c) == 1 else c
+
+
+def _blank_to_none(value: str | None) -> str | None:
+    """Form boxes left empty arrive as "" (or spaces): treat them as not given."""
+    return value.strip() or None if value is not None else None
 
 
 # ------------------------------------------------------------------ uploads
@@ -230,9 +243,17 @@ def options() -> dict:
 
 
 @app.post("/load")
-async def load_file(file: UploadFile = File(...), sheet: str | None = Form(None),
-                    layout: str | None = Form(None)) -> dict:
+async def load_file(file: UploadFile = File(...),
+                    sheet: str | None = Form(None, examples=[""], description=(
+                        "Excel only: sheet name or number (1 = first). Leave empty for the default.")),
+                    layout: str | None = Form(None, examples=[""], description=(
+                        "Leave empty to detect it. Or force: 'y', 'xy', 'pairs' (x/y column pairs) "
+                        "or 'shared' (one x column, many y columns)."))) -> dict:
     """Read an uploaded file: text, Excel or .mat."""
+    sheet = _blank_to_none(sheet)                                # an empty box means "not given"
+    layout = _blank_to_none(layout)
+    if sheet is not None and sheet.isdigit():                    # "2" from a form is sheet number 2
+        sheet = int(sheet)
     with tempfile.TemporaryDirectory() as folder:               # deleted with everything in it afterwards
         path = await _save_upload(file, Path(folder))
         result = load(path, sheet=sheet, layout=layout, verbose=False)

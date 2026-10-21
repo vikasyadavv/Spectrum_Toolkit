@@ -323,6 +323,8 @@ def build(table: Table, name: str, layout: str | None = None,
         notes.append(f"Columns chosen by hand: x = {x_col or 'point number'}, y = {[table.columns[p] + 1 for p in ys]}.")
         return _shared(table, x, ys, name, x_label=x_label, notes=notes)
 
+    if layout is not None and layout not in ("y", "xy", "pairs", "shared"):   # check before using it
+        raise ValueError(f"Unknown layout {layout!r}; use 'y', 'xy', 'pairs' or 'shared' (or leave it empty).")
     layout = layout or detect_layout(table)
     notes.append({
         "y": "One column: used as y against point number.",
