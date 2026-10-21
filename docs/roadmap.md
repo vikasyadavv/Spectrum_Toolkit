@@ -18,6 +18,8 @@ Each feature moves through: proposed → agreed → built → approved.
 | 2026-10-20 | `data/` stays local, never in git | Files can be large or unpublished. |
 | 2026-10-21 | Combining files never interpolates unless asked (`interpolate=True`) | Interpolation changes the numbers; the user decides. Same-grid data is combined without changing any value. |
 | 2026-10-21 | Method comparisons kept as scripts in `benchmarks/` that write `docs/benchmarks.md` | The numbers behind every default are saved, dated and can be rerun after any change. |
+| 2026-10-21 | Figure look = a style: a plain dict of named settings (presets clean, publication, matlab), storable as JSON | One place for every visual choice; users keep their own style file; the website can send the same JSON later. |
+| 2026-10-21 | matplotlib only for plotting, as the optional extra `[plot]` | The web server will draw plots in the browser from the numbers; it should not need matplotlib. |
 | 2026-10-20 | Code commented line by line in plain English; every function documented | Anyone can read what each line does. See `conventions.md`. |
 
 ## Features
@@ -33,10 +35,10 @@ Each feature moves through: proposed → agreed → built → approved.
 | 3 | Cosmic-ray (spike) removal: `despike` | approved 2026-10-21 |
 | 4 | Baseline correction: `baseline`, `find_baseline` (8 methods) | approved 2026-10-21 |
 | 5 | Smoothing: `smooth` (7 methods) | approved 2026-10-21 |
-| 6 | Normalisation: `normalize` (10 methods) | built, waiting for approval |
-| 7 | Derivatives: `derivative` (4 methods, 1st and 2nd) | built, waiting for approval |
-| - | Benchmarks: `benchmarks/run_all.py` → `docs/benchmarks.md` | built, waiting for approval |
-| 8 | Plotting and styling, before/after view (`stk.plot`) | proposed |
+| 6 | Normalisation: `normalize` (10 methods) | approved 2026-10-21 |
+| 7 | Derivatives: `derivative` (4 methods, 1st and 2nd) | approved 2026-10-21 |
+| - | Benchmarks: `benchmarks/run_all.py` → `docs/benchmarks.md` | approved 2026-10-21 |
+| 8 | Plotting: `stk.plot` (lines, stack, mean, image), `stk.compare` (before/after) | built; round 2 (styles, export) waiting for approval |
 | 9 | Recipes: save and re-apply a processing pipeline | proposed |
 | 10 | Docker image | proposed |
 | later | PCA, MCR, peak fitting | parked |
@@ -117,6 +119,23 @@ Each feature moves through: proposed → agreed → built → approved.
 - Defaults depend on n, chosen from the comparison against exact derivatives of Lorentzian bands: savgol window 15 / order 5 (n=1), window 11 / order 4 (n=2); gaussian sigma 1.25 / 1.5. Any setting given by the user is used instead. Tuned for bands of about 7-17 points.
 - Unevenly spaced points (> 1 % variation): savgol/gaussian work on an even grid and map back (`regridded=True` in history); spline and gradient use the real x.
 - Comparison: [benchmarks.md](benchmarks.md#derivatives). savgol is best (13 % error for n=1, 35 % for n=2); spline matches it for n=1 but not n=2.
+
+## Feature 8 notes (plotting)
+
+- `stk.plot(*data, kind=...)` or `s.plot()` / `c.plot()`: kinds "lines" (default), "stack" (automatic offset, 60 % of the median spectrum height), "mean" (mean ± 1 SD per collection), "image" (one row per spectrum; colour limits at the 1st/99th percentile so one bright spectrum does not hide the rest).
+- Many spectra: above 10 no legend and colours from a colour map; above 200 drawn as one LineCollection (550-spectrum map in well under a second).
+- `stk.compare(before, after, index)`: one spectrum before and after the last step, with a "removed" panel (before - after). Spikes removed by despike are shaded; for baseline the baseline is drawn; for normalize and derivative the result goes on its own right-hand y axis and there is no removed panel. Title = the step and its settings from history.
+- Shared settings: `region=(lo, hi)` (y follows the data in view), `xlabel`, `title`, `invert_x`, `style` ("clean" default, "publication", "matplotlib" or a dict), `save=` (300 dpi), `ax=` to draw into an existing figure. Every call returns the Axes.
+- Axis labels come from `x_unit` / `y_unit`; text and Excel files carry no units, so pass `xlabel="Raman shift (cm⁻¹)"`. (Possible later: remember a default x label.)
+- Round 2 (Vikas, 2026-10-21: customisation is user to user; likes "publication"; wants MATLAB colours, square axes, export options; see `main.m`, `separation1.tiff`):
+  - `spectrum_toolkit/style.py`: 40 named settings (`stk.style.SETTINGS`) for size (cm or inches, or "screen", "single" and "double" column, "square", "slide"), aspect ("square" or a ratio), font, sizes and weights, box ("closed", "open", "none") with width and colour, ticks (in/out/both, length, width, colour, which sides have ticks and which have numbers, minor ticks, spacing, number format), grid, line width and style (solid, dashed, dotted, markers only), colours ("matlab", "matplotlib", "colorblind", "black" or a list), legend (location incl. outside, size, bold, box), zero lines, dpi, file type and colour mode.
+  - Presets "clean", "publication", "matlab" (from main.m: bold Arial 15/18, grey box width 2 with black tick labels, ticks in, square, MATLAB colours, legend without box, 1200 dpi tiff), "matplotlib".
+  - Any plot call takes `style=` plus any setting by name; `stk.set_style` sets the session default; `stk.save_style` writes a JSON file to reuse.
+  - `stk.export(ax, name, folder=, format=, dpi=, color="rgb"|"cmyk", transparent=)`: png, tiff (LZW-compressed), jpg, pdf, svg, eps. CMYK for tiff and jpg, converted with a simple formula (no printer profile).
+  - `stk.scatter(x, y, groups)`: like MATLAB's gscatter, for PCA scores later; the separation1 figure is rebuilt in notebook 10.
+  - Extras: `peaks=N` labels the N most prominent bands (position refined between points), `marks={1585: "C=C"}` labelled reference lines, missing fonts fall back quietly (Arial → Liberation Sans on Linux).
+  - Notebook 10: a style editor (tabs for figure, box and ticks, text, lines, grid and legend, export) with Export and Save style buttons.
+- Not yet: map images by X/Y position (waits for map loading), interactive plots for the website (those will be drawn in the browser).
 
 ## Real data we test with (`data/`)
 

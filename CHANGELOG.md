@@ -5,6 +5,10 @@ until 1.0, MINOR goes up for each approved feature.
 
 ## Unreleased
 
+- Feature 8, round 2: figure styles (`spectrum_toolkit.style`): 40 named settings, presets clean / publication / matlab, `stk.set_style`, `stk.save_style` (JSON), `stk.get_style`; `stk.export` (png, tiff, jpg, pdf, svg, eps; dpi; RGB or CMYK; folder and name); `stk.scatter` (grouped points like gscatter); `peaks=` and `marks=` labels. 18 new tests, notebook 10 with a style editor.
+
+- Feature 8: `stk.plot` (kinds lines, stack, mean, image; region, styles "clean"/"publication", save) and `stk.compare` (before/after view of a step with a "removed" panel; spikes shaded, baseline drawn). Also as `.plot()` methods. matplotlib is now an optional extra: `spectrum-toolkit[plot]`. 10 new tests, notebook 09.
+
 - Benchmarks: `benchmarks/` scripts compare the methods of every feature on simulated spectra (and the real repeats in data/) and write `docs/benchmarks.md`. Rerun with `uv run python benchmarks/run_all.py`. The comparison tables moved there from the roadmap.
 
 - Feature 7: `derivative` (1st and 2nd) with 4 methods (savgol default, gaussian, smoothing spline, gradient); default window/order/sigma chosen per n from the benchmark; uneven x handled. 13 new tests, notebook 08.

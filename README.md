@@ -36,6 +36,10 @@ s = s.trim(200, 1800)                # keep 200-1800 cm-1
 c = stk.combine("a.txt", "b.xlsx")   # several files -> one collection on one x axis
 c = c.despike().baseline().smooth().normalize()   # defaults: single, airpls, savgol, snv
 d = c.derivative(n=2)                # 2nd derivative (Savitzky-Golay)
+c.plot("stack", xlabel="Raman shift (cm⁻¹)")       # also "lines", "mean", "image"
+stk.compare(c, c.baseline(), 0)      # before/after of one step, with what was removed
+ax = c.plot(style="matlab", aspect="square", box_width=2)       # any style setting by name
+stk.export(ax, "fig1", folder="figures", format="tiff", dpi=1200, color="cmyk")
 ```
 
 See `notebooks/` for worked examples.

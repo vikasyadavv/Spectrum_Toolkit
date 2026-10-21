@@ -156,6 +156,11 @@ class Spectrum:
         from .derivative import derivative
         return derivative(self, method, **settings)
 
+    def plot(self, kind: str = "lines", **settings: Any):
+        """Draw it with matplotlib; returns the Axes. See ``spectrum_toolkit.plot.plot``."""
+        from .plot import plot
+        return plot(self, kind=kind, **settings)
+
     def with_step(self, y: np.ndarray, step: str, x: np.ndarray | None = None, **params: Any) -> "Spectrum":
         """Return the result of a processing step, recorded in the history.
 
@@ -297,6 +302,11 @@ class SpectrumCollection:
         """First or second derivative of every spectrum. See ``spectrum_toolkit.derivative.derivative``."""
         from .derivative import derivative
         return derivative(self, method, **settings)
+
+    def plot(self, kind: str = "lines", **settings: Any):
+        """Draw the spectra with matplotlib; returns the Axes. See ``spectrum_toolkit.plot.plot``."""
+        from .plot import plot
+        return plot(self, kind=kind, **settings)
 
     @property
     def n_points(self) -> int:

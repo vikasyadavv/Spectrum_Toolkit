@@ -12,6 +12,10 @@ dependencies = [
     "xlrd>=2.0",
 ]
 
+[project.optional-dependencies]
+# Only needed to draw plots (stk.plot, stk.compare); the web server does not need it.
+plot = ["matplotlib>=3.8"]
+
 [dependency-groups]
 dev = [
     "pytest>=8",

@@ -2600,6 +2600,11 @@ dependencies = [
     { name = "xlrd" },
 ]
 
+[package.optional-dependencies]
+plot = [
+    { name = "matplotlib" },
+]
+
 [package.dev-dependencies]
 dev = [
     { name = "ipywidgets" },
@@ -2610,11 +2615,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "matplotlib", marker = "extra == 'plot'", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "xlrd", specifier = ">=2.0" },
 ]
+provides-extras = ["plot"]
 
 [package.metadata.requires-dev]
 dev = [

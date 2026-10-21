@@ -25,7 +25,7 @@ Revisit if table editing grows beyond that.
 | xlrd | 2.0.2 | 2.0 | reading old `.xls` spreadsheets (v2 reads only .xls) | yes |
 | pytest | 9.1.1 | 8 | automatic tests | dev only |
 | jupyterlab | 4.6.4 | 4 | notebooks for trying features | dev only |
-| matplotlib | 3.11.2 | 3.8 | plots in notebooks (plotting module comes later) | dev only, for now |
+| matplotlib | 3.11.2 | 3.8 | `stk.plot`, `stk.compare`, `stk.scatter`, `stk.export`, notebooks; brings Pillow (tiff, jpg, CMYK) and cycler with it | optional extra `[plot]` (and dev); the library works without it |
 | ipywidgets | 8.1.9 | 8 | tick boxes and sliders in notebooks | dev only |
 
 Python: 3.13 for development (matches the Mac setup), 3.11+ supported.
