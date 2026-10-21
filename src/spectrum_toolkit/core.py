@@ -131,6 +131,16 @@ class Spectrum:
         from .edit import cut
         return cut(self, lo, hi)
 
+    def despike(self, method: str = "single", **settings: Any) -> "Spectrum":
+        """Remove cosmic-ray spikes. See ``spectrum_toolkit.despike.despike``."""
+        from .despike import despike
+        return despike(self, method, **settings)
+
+    def baseline(self, method: str = "airpls", **settings: Any) -> "Spectrum":
+        """Subtract the baseline. See ``spectrum_toolkit.baseline.baseline``."""
+        from .baseline import baseline
+        return baseline(self, method, **settings)
+
     def with_step(self, y: np.ndarray, step: str, x: np.ndarray | None = None, **params: Any) -> "Spectrum":
         """Return the result of a processing step, recorded in the history.
 
@@ -247,6 +257,16 @@ class SpectrumCollection:
         """Remove these spectra, by number (0 = first) or name. See ``edit.drop``."""
         from .edit import drop
         return drop(self, *keys)
+
+    def despike(self, method: str = "single", **settings: Any) -> "SpectrumCollection":
+        """Remove cosmic-ray spikes from every spectrum. See ``spectrum_toolkit.despike.despike``."""
+        from .despike import despike
+        return despike(self, method, **settings)
+
+    def baseline(self, method: str = "airpls", **settings: Any) -> "SpectrumCollection":
+        """Subtract the baseline from every spectrum. See ``spectrum_toolkit.baseline.baseline``."""
+        from .baseline import baseline
+        return baseline(self, method, **settings)
 
     @property
     def n_points(self) -> int:

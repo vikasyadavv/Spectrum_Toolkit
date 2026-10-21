@@ -5,6 +5,10 @@ until 1.0, MINOR goes up for each approved feature.
 
 ## Unreleased
 
+- Feature 4: `baseline` and `find_baseline` with 8 methods (asls as in baseline.m, iasls, arpls, airpls, modpoly, imodpoly, rollingball, snip); 14 new tests.
+
+- Feature 3: `despike` with methods "single" (default), "compare" (repeats) and "kalkan" (port of spikeRemoval.m); every spike reported. 10 new tests, including the real cosmic rays in CV10-4M.xlsx.
+
 - Feature 2: `trim`, `cut`, `select`, `drop` (also as methods), `stk.combine` for many files with an x-axis check (`stk.check_axes`); interpolation only with `interpolate=True`. interpolation methods linear, quadratic, cubic, pchip, akima; `stk.resample`. 24 new tests.
 - Loader: axis titles like "wavenumber" or "Intensity" are no longer used as spectrum names.
 
