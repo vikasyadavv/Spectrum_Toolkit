@@ -133,3 +133,13 @@ the website needs and they get added:
 - combining several files into one set; selecting or dropping spectra by name; resample
 - before/after view of one step (`stk.compare`), grouped scatter (`stk.scatter`)
 - saving a recipe or a style to a file (the website would keep these itself)
+
+## Ideas noted during testing (for later)
+
+- A "compare all baseline methods" view on the website: on our files the best
+  method differs (CV10-4M: airpls/iasls/snip; A_A_1 after trimming: arpls and
+  imodpoly), so users should see them side by side. Pictures: `docs/gui_testing/`.
+- Low-wavenumber filter edge (A_A_1.asc below ~450 cm⁻¹): suggest trimming it
+  automatically, or warn, before baseline correction.
+- Dead points at the end of spectra (wt_raw.mat, last 2 points ≈ 0): automatic check.
+- More plotting options later (any new style setting appears in /options by itself).

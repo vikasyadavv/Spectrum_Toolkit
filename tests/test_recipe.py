@@ -140,3 +140,16 @@ def test_band_without_a_band_is_explained():
     s = Spectrum(X, 300 + 0.1 * X)
     with pytest.raises(ValueError, match="No band in region"):
         s.normalize("band", region=(900, 950))
+
+
+def test_trim_with_one_open_end():
+    """trim(450, None) keeps everything from 450 up, directly, in a recipe and through the web service."""
+    s = Spectrum(np.arange(100.0, 1000.0), np.arange(900.0))
+    assert s.trim(450, None).x.min() == 450 and s.trim(450, None).x.max() == 999
+    assert s.trim(None, 300).x.max() == 300
+    assert s.trim(450, None).history[-1] == {"step": "trim", "lo": 450, "hi": None, "points_removed": 350}
+    r = Recipe([{"step": "trim", "lo": 450}])
+    assert r.steps[0] == {"step": "trim", "lo": 450, "hi": None}
+    assert r.apply(s).x.min() == 450
+    assert Recipe.from_history(s.trim(450, None)).apply(s).x.size == 550
+    assert Recipe().trim(None, 300).apply(s).x.max() == 300

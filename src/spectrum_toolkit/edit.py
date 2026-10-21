@@ -33,8 +33,11 @@ Data = Spectrum | SpectrumCollection
 
 
 # ------------------------------------------------------------------ helpers
-def _range(lo: float, hi: float) -> tuple[float, float]:
-    """Return (lo, hi) in increasing order, so trim(1800, 500) also works."""
+def _range(lo: float | None, hi: float | None) -> tuple[float, float]:
+    """Return (lo, hi) in increasing order, so trim(1800, 500) also works.
+    None means "no limit on that side": trim(450, None) keeps everything from 450 up."""
+    lo = -np.inf if lo is None else lo                # open end: no lower limit
+    hi = np.inf if hi is None else hi                 # open end: no upper limit
     return (lo, hi) if lo <= hi else (hi, lo)
 
 
@@ -50,21 +53,23 @@ def _apply_mask(data: Data, keep: np.ndarray, step: str, **params: Any) -> Data:
 
 
 # ------------------------------------------------------------- trim and cut
-def trim(data: Data, lo: float, hi: float) -> Data:
-    """Keep only the points with lo <= x <= hi.
+def trim(data: Data, lo: float | None, hi: float | None) -> Data:
+    """Keep only the points with lo <= x <= hi. Either end may be None (no limit).
 
     Works on a Spectrum or a whole SpectrumCollection.
 
     >>> s = Spectrum([100, 200, 300, 400], [1, 2, 3, 4])
     >>> trim(s, 200, 300).y
     array([2., 3.])
+    >>> trim(s, 250, None).y                          # from 250 to the end
+    array([3., 4.])
     """
     lo, hi = _range(lo, hi)
     keep = (data.x >= lo) & (data.x <= hi)            # True inside the range
-    return _apply_mask(data, keep, "trim", lo=lo, hi=hi)
+    return _apply_mask(data, keep, "trim", **_limits(lo, hi))
 
 
-def cut(data: Data, lo: float, hi: float) -> Data:
+def cut(data: Data, lo: float | None, hi: float | None) -> Data:
     """Remove the points with lo <= x <= hi, e.g. a laser line or a bad region.
 
     The points are removed, not set to zero, so the x axis has a gap there.
@@ -75,7 +80,13 @@ def cut(data: Data, lo: float, hi: float) -> Data:
     """
     lo, hi = _range(lo, hi)
     keep = ~((data.x >= lo) & (data.x <= hi))         # True outside the range
-    return _apply_mask(data, keep, "cut", lo=lo, hi=hi)
+    return _apply_mask(data, keep, "cut", **_limits(lo, hi))
+
+
+def _limits(lo: float, hi: float) -> dict:
+    """History values: the limits in increasing order, with an open end kept as None
+    (JSON has no infinity, and None replays the same way in a recipe)."""
+    return {"lo": None if np.isinf(lo) else lo, "hi": None if np.isinf(hi) else hi}
 
 
 # --------------------------------------------------------- select and drop

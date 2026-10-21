@@ -74,8 +74,9 @@ def _check_step(step: dict) -> dict:
     settings = {k: v for k, v in step.items() if k not in ("step", "method")}
     method = step.get("method")
     if name in ("trim", "cut"):
-        if set(settings) != {"lo", "hi"}:
-            raise ValueError(f"{name} needs exactly lo and hi, got {sorted(settings)}.")
+        if not settings or not set(settings) <= {"lo", "hi"}:
+            raise ValueError(f"{name} takes lo and/or hi (a missing one means no limit), got {sorted(settings)}.")
+        step = {"step": name, "lo": settings.get("lo"), "hi": settings.get("hi")}    # missing end = None
     elif name == "resample":
         if "x" not in settings:
             raise ValueError("resample needs the new axis x (a list of numbers).")
@@ -109,6 +110,13 @@ def _check_step(step: dict) -> dict:
         full = module._settings(method, settings)
         step = {"step": name, "method": method, **full}
     return step
+
+
+def _limits(lo: float | None, hi: float | None) -> dict:
+    """lo and hi as numbers in increasing order; None stays None (open end)."""
+    if lo is not None and hi is not None and lo > hi:
+        lo, hi = hi, lo
+    return {"lo": None if lo is None else float(lo), "hi": None if hi is None else float(hi)}
 
 
 def _run_step(data: Data, step: dict, verbose: bool) -> Data:
@@ -158,13 +166,13 @@ class Recipe:
         new = Recipe(self.steps + [entry], self.name, self.description)
         return new
 
-    def trim(self, lo: float, hi: float) -> "Recipe":
-        """Add: keep lo <= x <= hi."""
-        return self.add("trim", lo=float(min(lo, hi)), hi=float(max(lo, hi)))
+    def trim(self, lo: float | None, hi: float | None) -> "Recipe":
+        """Add: keep lo <= x <= hi (None: no limit on that side)."""
+        return self.add("trim", **_limits(lo, hi))
 
-    def cut(self, lo: float, hi: float) -> "Recipe":
-        """Add: remove lo <= x <= hi."""
-        return self.add("cut", lo=float(min(lo, hi)), hi=float(max(lo, hi)))
+    def cut(self, lo: float | None, hi: float | None) -> "Recipe":
+        """Add: remove lo <= x <= hi (None: no limit on that side)."""
+        return self.add("cut", **_limits(lo, hi))
 
     def despike(self, method: str = "single", **settings: Any) -> "Recipe":
         """Add: cosmic-ray removal (see spectrum_toolkit.despike)."""
