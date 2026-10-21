@@ -88,6 +88,25 @@ def _spike_ranges(item: Data, name: str | None = None) -> list[tuple[float, floa
     return ranges
 
 
+def _check_highlight(highlight):
+    """highlight as given: None, "spikes", or a list of (lo, hi) x ranges; anything else is an error."""
+    if highlight is None or highlight == "spikes":
+        return highlight
+    ok = isinstance(highlight, (list, tuple)) and all(
+        isinstance(r, (list, tuple)) and len(r) == 2
+        and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in r) for r in highlight)
+    if not ok:
+        raise ValueError(f'highlight must be "spikes" or a list of x ranges such as [[1570, 1640]]; got {highlight!r}.')
+    return [tuple(r) for r in highlight]
+
+
+def _inside(ranges, lines):
+    """Only the ranges that overlap the x span of the drawn lines (e.g. spikes in a part cut off by trim)."""
+    lo = min(float(np.min(x)) for x, _ in lines)
+    hi = max(float(np.max(x)) for x, _ in lines)
+    return [(a, b) for a, b in ranges if max(a, b) >= lo and min(a, b) <= hi]
+
+
 def _shade(ax, ranges, color="tab:red", alpha=0.15):
     """Shade x ranges (e.g. spikes or a region of interest) on the axes."""
     for lo, hi in ranges:
@@ -211,6 +230,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
         raise ValueError("Nothing to plot: give at least one Spectrum or SpectrumCollection.")
     if kind not in KINDS:
         raise ValueError(f"Unknown kind {kind!r}. Choose one of: {', '.join(KINDS)}.")
+    highlight = _check_highlight(highlight)                         # a wrong value is an error, not ignored
     look = get_style(style, **style_settings)
     plt = _plt()
     with styled(look):
@@ -282,7 +302,8 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
             first_line = drawn[0]
             n_lines = n_total
         if highlight == "spikes":
-            _shade(ax, [r for item in data for r in _spike_ranges(item)])
+            # spikes outside the drawn x range (cut off by trim) would stretch the axis: skip them
+            _shade(ax, _inside([r for item in data for r in _spike_ranges(item)], drawn))
         elif highlight:
             _shade(ax, highlight, color="tab:orange")
         if region:

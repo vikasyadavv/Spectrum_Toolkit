@@ -129,6 +129,11 @@ def test_figure_settings_and_extras():
     assert r.status_code == 200, r.text
 
 
+def test_figure_wrong_highlight_is_422():
+    r = client.post("/figure", json={"data": sample(), "highlight": 0})
+    assert r.status_code == 422 and "highlight must be" in r.json()["detail"]
+
+
 def test_figure_bad_format_is_422():
     r = client.post("/figure", json={"data": sample(), "format": "bmp"})
     assert r.status_code == 422 and "bmp" in r.json()["detail"]

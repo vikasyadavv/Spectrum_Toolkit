@@ -127,3 +127,19 @@ def test_save_style_and_errors(tmp_path):
         s.plot(style="fancy")
     with pytest.raises(TypeError, match="Spectrum"):
         stk.plot(np.ones(3))
+
+
+def test_highlight_ranges_spikes_and_wrong_values():
+    """highlight: x ranges are shaded; spikes cut off by trim are skipped; a wrong value is an error."""
+    c = peaks(np.random.default_rng(7), 2)
+    ax = c.plot(highlight=[[990, 1010], [1490, 1510]])
+    assert len(ax.patches) == 2
+    rng = np.random.default_rng(8)
+    y = 1000 + rng.normal(0, 20, X.size)
+    y[50] += 5000                                                 # a spike near 160, then trimmed away
+    s = Spectrum(X, y, name="s").despike(verbose=False).trim(400, None)
+    ax = s.plot(highlight="spikes")
+    assert len(ax.patches) == 0 and ax.get_xlim()[0] > 300       # the axis is not stretched to the spike
+    for wrong in (0, "peaks", [1, 2], [[1, "a"]]):
+        with pytest.raises(ValueError, match="highlight must be"):
+            c.plot(highlight=wrong)

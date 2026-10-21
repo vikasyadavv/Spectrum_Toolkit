@@ -116,7 +116,7 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] K2 `"region": [1000, 1700],` (zoom)
 - [ ] K3 `"peaks": 5,` (labels the 5 strongest peaks)
 - [ ] K4 `"marks": {"1620": "C=C"},`
-- [ ] K5 `"highlight": 0,` (first spectrum stands out)
+- [ ] K5 `"highlight": [[1570, 1640]],` (that x range is shaded; `"highlight": "spikes",` shades the spikes despike removed)
 - [ ] K6 `"invert_x": true,`
 
 ## L. File formats and quality
