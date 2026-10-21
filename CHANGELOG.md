@@ -5,6 +5,14 @@ until 1.0, MINOR goes up for each approved feature.
 
 ## Unreleased
 
+- Benchmarks: `benchmarks/` scripts compare the methods of every feature on simulated spectra (and the real repeats in data/) and write `docs/benchmarks.md`. Rerun with `uv run python benchmarks/run_all.py`. The comparison tables moved there from the roadmap.
+
+- Feature 7: `derivative` (1st and 2nd) with 4 methods (savgol default, gaussian, smoothing spline, gradient); default window/order/sigma chosen per n from the benchmark; uneven x handled. 13 new tests, notebook 08.
+
+- Feature 6: `normalize` with 10 methods (snv default, max, minmax, area, vector, robust snv, band/internal standard, msc, emsc, pqn); `region=` for one-factor methods; `reference=` for msc/emsc/pqn. 16 new tests, notebook 07.
+
+- Feature 5: `smooth` with 7 methods (savgol default, whittaker, automatic smoothing spline, gaussian, moving, median, fourier); 11 new tests.
+
 - Feature 4: `baseline` and `find_baseline` with 8 methods (asls as in baseline.m, iasls, arpls, airpls, modpoly, imodpoly, rollingball, snip); 14 new tests.
 
 - Feature 3: `despike` with methods "single" (default), "compare" (repeats) and "kalkan" (port of spikeRemoval.m); every spike reported. 10 new tests, including the real cosmic rays in CV10-4M.xlsx.

@@ -22,6 +22,7 @@ uv sync                  # creates .venv with Python 3.13 and every dependency
 ```bash
 uv run pytest            # run all tests
 uv run jupyter lab       # open the notebooks to try features on real data
+uv run python benchmarks/run_all.py   # rerun the method comparisons -> docs/benchmarks.md
 ```
 
 In VS Code, pick `.venv/bin/python` as the interpreter / notebook kernel.
@@ -33,6 +34,8 @@ import spectrum_toolkit as stk
 s = stk.load("data/A_A_1.asc")       # text, Excel or .mat; prints what it read
 s = s.trim(200, 1800)                # keep 200-1800 cm-1
 c = stk.combine("a.txt", "b.xlsx")   # several files -> one collection on one x axis
+c = c.despike().baseline().smooth().normalize()   # defaults: single, airpls, savgol, snv
+d = c.derivative(n=2)                # 2nd derivative (Savitzky-Golay)
 ```
 
 See `notebooks/` for worked examples.
@@ -43,8 +46,10 @@ See `notebooks/` for worked examples.
 src/spectrum_toolkit/   the library
 tests/                  automatic tests (pytest)
 notebooks/              hands-on trials of each feature with real data
+benchmarks/             scripts comparing the methods (fixed seeds)
 data/                   our real data files (local only, not in git)
 docs/roadmap.md         features: proposed, agreed, done; decisions
+docs/benchmarks.md      how the methods compare, and why the defaults (generated)
 docs/dependencies.md    every dependency, its version, how to upgrade
 docs/conventions.md     how code is commented and organised
 CHANGELOG.md            what changed in each version

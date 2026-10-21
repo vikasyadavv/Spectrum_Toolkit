@@ -39,7 +39,7 @@ must be wider than the widest band.
                    (Ryan et al. 1988; Morháč et al. 1997), on a
                    log-log-sqrt scale to handle large intensity ranges.
 
-How they compare on simulated spectra is in docs/roadmap.md (feature 4).
+How they compare on simulated spectra is in docs/benchmarks.md (rerun: benchmarks/run_all.py).
 
 References
 ----------
@@ -280,7 +280,7 @@ def find_baseline(data: Data, method: str = "airpls", **settings: Any) -> Data:
     Parameters
     ----------
     method : one of ``METHODS``; default "airpls" (the most accurate with
-        default settings in our comparison, docs/roadmap.md feature 4).
+        default settings in our comparison, docs/benchmarks.md).
     **settings : that method's settings; see ``DEFAULTS[method]``.
     """
     s = _settings(method, settings)

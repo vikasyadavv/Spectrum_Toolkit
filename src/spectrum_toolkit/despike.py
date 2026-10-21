@@ -40,9 +40,9 @@ Raman bands are several points wide and smooth. Three methods are offered:
     neighbours each side. Note: like the original, it always replaces
     candidates within 2 × ``ndata`` points of either end.
 
-How they compare (docs/roadmap.md, feature 3): on 200 simulated Raman
-spectra, "single" repaired 94 % of strong spikes with almost no false
-alarms; "kalkan" repaired 61 % and changed points in 8 % of clean spectra.
+How they compare (docs/benchmarks.md): on 300 simulated Raman
+spectra, "single" repaired 94 % of strong spikes with false alarms in 1 %
+of spectra; "kalkan" repaired 59 % with false alarms in 7 %.
 On the real data, "single" and "compare" find exactly the three cosmic rays
 in CV10-4M.xlsx (spectra 3 and 10) and nothing in RhB, MB or the 550-spectrum
 map.

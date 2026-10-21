@@ -3,7 +3,7 @@
 Simulated spectra with a KNOWN baseline (curved polynomial, fluorescence
 decay, broad humps) plus Lorentzian bands and photon noise, so the error of
 each method can be measured. The limits below are about 1.5 × the errors
-measured when the methods were compared (docs/roadmap.md, feature 4).
+measured when the methods were compared (docs/benchmarks.md).
 """
 
 import numpy as np

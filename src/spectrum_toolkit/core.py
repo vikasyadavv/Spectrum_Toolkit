@@ -141,6 +141,21 @@ class Spectrum:
         from .baseline import baseline
         return baseline(self, method, **settings)
 
+    def smooth(self, method: str = "savgol", **settings: Any) -> "Spectrum":
+        """Reduce noise. See ``spectrum_toolkit.smooth.smooth``."""
+        from .smooth import smooth
+        return smooth(self, method, **settings)
+
+    def normalize(self, method: str = "snv", **settings: Any) -> "Spectrum":
+        """Put the intensity on a comparable scale. See ``spectrum_toolkit.normalize.normalize``."""
+        from .normalize import normalize
+        return normalize(self, method, **settings)
+
+    def derivative(self, method: str = "savgol", **settings: Any) -> "Spectrum":
+        """First or second derivative. See ``spectrum_toolkit.derivative.derivative``."""
+        from .derivative import derivative
+        return derivative(self, method, **settings)
+
     def with_step(self, y: np.ndarray, step: str, x: np.ndarray | None = None, **params: Any) -> "Spectrum":
         """Return the result of a processing step, recorded in the history.
 
@@ -267,6 +282,21 @@ class SpectrumCollection:
         """Subtract the baseline from every spectrum. See ``spectrum_toolkit.baseline.baseline``."""
         from .baseline import baseline
         return baseline(self, method, **settings)
+
+    def smooth(self, method: str = "savgol", **settings: Any) -> "SpectrumCollection":
+        """Reduce noise in every spectrum. See ``spectrum_toolkit.smooth.smooth``."""
+        from .smooth import smooth
+        return smooth(self, method, **settings)
+
+    def normalize(self, method: str = "snv", **settings: Any) -> "SpectrumCollection":
+        """Put every spectrum's intensity on a comparable scale. See ``spectrum_toolkit.normalize.normalize``."""
+        from .normalize import normalize
+        return normalize(self, method, **settings)
+
+    def derivative(self, method: str = "savgol", **settings: Any) -> "SpectrumCollection":
+        """First or second derivative of every spectrum. See ``spectrum_toolkit.derivative.derivative``."""
+        from .derivative import derivative
+        return derivative(self, method, **settings)
 
     @property
     def n_points(self) -> int:

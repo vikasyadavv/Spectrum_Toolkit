@@ -17,6 +17,7 @@ Each feature moves through: proposed → agreed → built → approved.
 | 2026-10-20 | Every dependency documented with its version; upgrades on a branch, tests must pass | Easy, safe upgrades later. See `dependencies.md`. |
 | 2026-10-20 | `data/` stays local, never in git | Files can be large or unpublished. |
 | 2026-10-21 | Combining files never interpolates unless asked (`interpolate=True`) | Interpolation changes the numbers; the user decides. Same-grid data is combined without changing any value. |
+| 2026-10-21 | Method comparisons kept as scripts in `benchmarks/` that write `docs/benchmarks.md` | The numbers behind every default are saved, dated and can be rerun after any change. |
 | 2026-10-20 | Code commented line by line in plain English; every function documented | Anyone can read what each line does. See `conventions.md`. |
 
 ## Features
@@ -29,11 +30,12 @@ Each feature moves through: proposed → agreed → built → approved.
 | 1d | Loading JCAMP-DX, SPC, JSON | proposed |
 | 1c | Instrument files: Renishaw .wdf and others | later |
 | 2 | Editing: trim, cut, select/drop spectra, combine files | approved 2026-10-21 |
-| 3 | Cosmic-ray (spike) removal: `despike` | built, waiting for approval |
-| 4 | Baseline correction: `baseline`, `find_baseline` (8 methods) | built, waiting for approval |
-| 5 | Smoothing | proposed |
-| 6 | Normalisation | proposed |
-| 7 | Derivatives | proposed |
+| 3 | Cosmic-ray (spike) removal: `despike` | approved 2026-10-21 |
+| 4 | Baseline correction: `baseline`, `find_baseline` (8 methods) | approved 2026-10-21 |
+| 5 | Smoothing: `smooth` (7 methods) | approved 2026-10-21 |
+| 6 | Normalisation: `normalize` (10 methods) | built, waiting for approval |
+| 7 | Derivatives: `derivative` (4 methods, 1st and 2nd) | built, waiting for approval |
+| - | Benchmarks: `benchmarks/run_all.py` → `docs/benchmarks.md` | built, waiting for approval |
 | 8 | Plotting and styling, before/after view (`stk.plot`) | proposed |
 | 9 | Recipes: save and re-apply a processing pipeline | proposed |
 | 10 | Docker image | proposed |
@@ -76,13 +78,7 @@ Each feature moves through: proposed → agreed → built → approved.
 - `s.despike()` / `c.despike(method=...)`. Methods: "single" (default, each spectrum alone), "compare" (collections of repeats), "kalkan" (port of Vikas's MATLAB `spikeRemoval.m`, E. Kalkan 2019).
 - "single": Anscombe transform (equal noise), candidates far above a running median AND sharp for their height (curvature / height > `sharpness`; a 1-point spike ≈ 2, a 5-point band ≈ 0.5), extent and repair from a quadratic through the neighbours, 2 passes. Builds on Whitaker & Hayes (2018).
 - Settings: `threshold` (8), `width` (3), `sharpness` (1.0), `grow` (3), `passes` (2); kalkan: `window` 25, `nstd` 3, `ndata` 5, `nbins` 4.
-- Comparison, 200 simulated spectra (bands 8-20 cm⁻¹, photon noise, 1-3 point spikes):
-
-  | method | strong spikes (>20σ) repaired | medium (10-20σ) | clean spectra changed |
-  |---|---|---|---|
-  | single | 94 % | 71 % | 0-2 % |
-  | kalkan (MATLAB) | 61 % | 60 % | 8 % |
-  | Whitaker-Hayes as published | 78 % | 48 % | 100 % (cuts band tops) |
+- Comparison on simulated spectra: [benchmarks.md](benchmarks.md#cosmic-ray-removal-despike). "single" repairs 94 % of strong spikes with false alarms in 1 % of spectra; kalkan 59 % with 7 %.
 
 - Real data: "single" and "compare" find exactly the cosmic rays in CV10-4M.xlsx (spectrum 4 at 1635 and 1696-1702, spectrum 11 at 313-315) and one in CV+RhB+MB.xlsx (spectrum 25 at 1026-1028); nothing in RhB, MB, A_A_1 or the 550-spectrum map. "kalkan" changes 50 places in the 14 CV spectra, mostly noise and the last 10 points of each spectrum (it always replaces points near the ends), misses the spike at 1635 and leaves part of the one at 1700.
 - Limit: a spike as wide as a real band cannot be told apart in a single spectrum; use "compare" with repeats.
@@ -92,21 +88,35 @@ Each feature moves through: proposed → agreed → built → approved.
 - Written ourselves with numpy/scipy (decided 2026-10-21: no pybaselines), every method referenced in `baseline.py`.
 - `s.baseline(method, **settings)` subtracts; `stk.find_baseline(...)` returns the baseline to plot. Default "airpls".
 - Methods and defaults: asls (lam 1e5, p 0.005, 10 rounds: identical to `baseline.m`, checked to 1e-6), iasls (lam 1e4), arpls (lam 1e6), airpls (lam 1e6), modpoly / imodpoly (order 5), rollingball / snip (window 100, in x units).
-- Comparison, 30 simulated spectra per baseline type (12 bands 8-20 cm⁻¹, photon noise); error of the baseline in noise units, default settings / best setting:
-
-  | method | curved polynomial | fluorescence decay | broad humps |
-  |---|---|---|---|
-  | airpls (default) | 1.4 / 1.0 | 1.2 / 1.0 | 1.5 / 1.5 |
-  | asls (baseline.m) | 3.2 / 1.2 (lam 1e7) | 2.3 / 1.3 | 2.5 / 1.7 (lam 1e6) |
-  | arpls | 2.5 / 2.0 | 1.8 / 1.5 | 2.1 / 1.9 |
-  | iasls | 1.9 | 2.2 / 1.9 | 6.2 / 2.1 (lam 1e3) |
-  | modpoly | 1.6 / 0.9 (order 2) | 1.5 / 0.8 (order 3) | 2.4 / 2.1 |
-  | imodpoly | 3.5 / 2.9 | 2.6 / 2.3 | 3.3 |
-  | rollingball | 3.1 / 1.4 (300) | 2.7 / 2.1 (200) | 2.8 / 2.1 (200) |
-  | snip | 1.9 | 1.8 | 4.4 / 2.4 (50) |
+- Comparison on simulated spectra, with the effect of each method's main setting: [benchmarks.md](benchmarks.md#baseline-correction). airpls has the lowest error on all three background types.
 
 - `lam` depends on point spacing: denser points need a larger `lam` for the same stiffness.
 - Data quirk: in `wt_raw.mat` the last 2 points of every spectrum are about 0 (detector edge); trim them (`c.trim(441, 1818)`) before baseline, otherwise the baseline is pulled down at the end.
+
+## Feature 5 notes (smoothing)
+
+- `s.smooth(method, **settings)`; default "savgol" (window 15, order 4). Windows are in points.
+- Methods and defaults: savgol (15, 4), whittaker (lam 3), spline (lam None = automatic, by generalised cross-validation), gaussian (sigma 1), moving (5), median (5), fourier (cutoff 0.25).
+- Comparison on simulated spectra, with the effect of the settings: [benchmarks.md](benchmarks.md#smoothing).
+
+- Savitzky-Golay with window 11, order 3 (a common choice) gave 0.65 and 6.8 %; window 15, order 4 is better on both, so it is the default.
+- "spline" adapts to each spectrum: it smooths the noisy map spectra more and the clean CV spectra less, with no setting.
+
+## Feature 6 notes (normalisation)
+
+- `s.normalize(method, **settings)`; default "snv". Usually after despike and baseline.
+- One spectrum at a time: max, minmax, area, vector, snv, rsnv (robust SNV: median and MAD), band (height or area of one band above a local straight line, `region=` required: the internal-standard method). All take `region=(lo, hi)` to compute the factor from that range only.
+- Several spectra together: msc, emsc (MSC plus a polynomial background, `order` 2), pqn (probabilistic quotient). Reference: mean (msc, emsc) or median (pqn) of the collection, or `reference=` (needed for a single spectrum).
+- Comparison on simulated replicates (scale, offset, slope, one band really changing) and on the CV/RhB/MB repeats: [benchmarks.md](benchmarks.md#normalisation). Summary: all fix a pure scale change; offsets need snv/msc/emsc; sloping backgrounds need emsc; when some bands change, use pqn or an internal-standard band. On real CV repeats every method brings the spread from 42 % to 16-19 %.
+- Default kept as snv: works on one spectrum, handles offsets, and is never far from the best. emsc is the best choice for a set of spectra with backgrounds.
+
+## Feature 7 notes (derivatives)
+
+- `s.derivative(method, n=1 or 2, **settings)`; default "savgol". Result in y per x unit (y_unit becomes e.g. `d(counts)/d(cm-1)`).
+- Methods: savgol, gaussian, spline (automatic smoothing), gradient (plain finite differences).
+- Defaults depend on n, chosen from the comparison against exact derivatives of Lorentzian bands: savgol window 15 / order 5 (n=1), window 11 / order 4 (n=2); gaussian sigma 1.25 / 1.5. Any setting given by the user is used instead. Tuned for bands of about 7-17 points.
+- Unevenly spaced points (> 1 % variation): savgol/gaussian work on an even grid and map back (`regridded=True` in history); spline and gradient use the real x.
+- Comparison: [benchmarks.md](benchmarks.md#derivatives). savgol is best (13 % error for n=1, 35 % for n=2); spline matches it for n=1 but not n=2.
 
 ## Real data we test with (`data/`)
 
