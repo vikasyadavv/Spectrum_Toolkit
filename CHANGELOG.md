@@ -5,6 +5,9 @@ until 1.0, MINOR goes up for each approved feature.
 
 ## Unreleased
 
+- Feature 2: `trim`, `cut`, `select`, `drop` (also as methods), `stk.combine` for many files with an x-axis check (`stk.check_axes`); interpolation only with `interpolate=True`. interpolation methods linear, quadratic, cubic, pchip, akima; `stk.resample`. 24 new tests.
+- Loader: axis titles like "wavenumber" or "Intensity" are no longer used as spectrum names.
+
 - Feature 1b: `stk.load()` reads MATLAB .mat files, finding the x axis and spectra by shape (any variable names); `x=`/`y=` to choose by name. 12 new tests.
 - Feature 1: `stk.load()` for text files and Excel (.xlsx, .xls), with layout detection, decimal commas, headers, metadata and a fast path for large files.
 - New dependencies: openpyxl, xlrd.

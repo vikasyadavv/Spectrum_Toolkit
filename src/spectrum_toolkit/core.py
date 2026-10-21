@@ -120,6 +120,17 @@ class Spectrum:
         """
         return replace(self, **changes)
 
+    # ----- editing (the work is done in edit.py; these are shortcuts) -----
+    def trim(self, lo: float, hi: float) -> "Spectrum":
+        """Keep only lo <= x <= hi. See ``spectrum_toolkit.edit.trim``."""
+        from .edit import trim          # imported here: edit.py itself imports this file
+        return trim(self, lo, hi)
+
+    def cut(self, lo: float, hi: float) -> "Spectrum":
+        """Remove lo <= x <= hi. See ``spectrum_toolkit.edit.cut``."""
+        from .edit import cut
+        return cut(self, lo, hi)
+
     def with_step(self, y: np.ndarray, step: str, x: np.ndarray | None = None, **params: Any) -> "Spectrum":
         """Return the result of a processing step, recorded in the history.
 
@@ -211,6 +222,31 @@ class SpectrumCollection:
         """The short summary shown when you type the variable name in a notebook."""
         return (f"SpectrumCollection({len(self)} spectra × {self.x.size} points, "
                 f"x {self.x.min():.6g} to {self.x.max():.6g})")
+
+    def copy_with(self, **changes: Any) -> "SpectrumCollection":
+        """Return a new collection with some fields replaced; the original is unchanged."""
+        return replace(self, **changes)
+
+    # ----- editing (the work is done in edit.py; these are shortcuts) -----
+    def trim(self, lo: float, hi: float) -> "SpectrumCollection":
+        """Keep only lo <= x <= hi, for every spectrum. See ``spectrum_toolkit.edit.trim``."""
+        from .edit import trim
+        return trim(self, lo, hi)
+
+    def cut(self, lo: float, hi: float) -> "SpectrumCollection":
+        """Remove lo <= x <= hi, for every spectrum. See ``spectrum_toolkit.edit.cut``."""
+        from .edit import cut
+        return cut(self, lo, hi)
+
+    def select(self, *keys: int | str) -> "SpectrumCollection":
+        """Keep only these spectra, by number (0 = first) or name. See ``edit.select``."""
+        from .edit import select
+        return select(self, *keys)
+
+    def drop(self, *keys: int | str) -> "SpectrumCollection":
+        """Remove these spectra, by number (0 = first) or name. See ``edit.drop``."""
+        from .edit import drop
+        return drop(self, *keys)
 
     @property
     def n_points(self) -> int:

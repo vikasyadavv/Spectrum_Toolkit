@@ -338,6 +338,17 @@ def _shared(table: Table, x: np.ndarray, ys: list[int], name: str, x_label: str,
     return SpectrumCollection(x, Y, names=names, x_unit=x_label, meta=meta)
 
 
+# Words that make a header an axis title rather than a sample name.
+_AXIS_WORDS = ("wavenumber", "wave number", "raman shift", "shift", "wavelength", "cm-1", "cm⁻¹",
+               "intensity", "counts", "absorbance", "transmittance", "energy", "frequency")
+
+
+def _is_axis_title(text: str) -> bool:
+    """True for headers like "Wavenumber (cm-1)" or "Intensity", or a bare "x"/"y"."""
+    t = text.strip().lower()
+    return t in ("x", "y") or any(w in t for w in _AXIS_WORDS)
+
+
 def _pairs(table: Table, name: str, notes: list[str]):
     """x, y, x, y, ... columns: one spectrum per pair."""
     spectra = []
@@ -346,8 +357,10 @@ def _pairs(table: Table, name: str, notes: list[str]):
         ok = np.isfinite(x) & np.isfinite(y)                 # each pair can have its own length
         pair_notes: list[str] = []
         xs, ys = _ascending(x[ok], y[ok][None, :], pair_notes)
-        # Name: the header above the x column (e.g. "1"), else above y, else a number.
-        label = table.headers[c] or table.headers[c + 1] or f"Spectrum {k + 1}"
+        # Name: the header above the x column (e.g. "1"), else above y, else a
+        # number. Axis titles such as "Wavenumber" or "Intensity" are not names.
+        heads = [h for h in (table.headers[c], table.headers[c + 1]) if h and not _is_axis_title(h)]
+        label = heads[0] if heads else f"Spectrum {k + 1}"
         spectra.append(Spectrum(xs, ys[0], name=label, meta={"pair_notes": pair_notes}))
     # Report each distinct ordering note once, not once per pair.
     for n in dict.fromkeys(n for s in spectra for n in s.meta["pair_notes"]):
