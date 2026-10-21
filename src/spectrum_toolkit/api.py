@@ -20,10 +20,17 @@ POST /figure        JSON {"data": ..., "kind": "lines", "style": "publication",
                     "settings": {...}, "format": "tiff", "dpi": 600, ...}:
                     returns the figure as a file (png, tiff, jpg, pdf, svg, eps).
 
-Data in requests and answers looks like this (one row of "Y" per spectrum)::
+Data in answers always has the same fields, in this order (one row of "Y"
+per spectrum; sizes first, like MATLAB's size())::
 
-    {"x": [...], "Y": [[...], ...], "names": ["Spectrum 1", ...],
-     "x_unit": "", "y_unit": "", "history": [...]}
+    {"n_spectra": 14, "n_points": 1424, "size_Y": [14, 1424], "size_x": [1424],
+     "x_range": [101.9, 1802.8], "names": ["Spectrum 1", ...], "x_unit": "", "y_unit": "",
+     "notes": [...what was assumed while reading...], "history": [...every step...],
+     "x": [...], "Y": [[...], ...]}
+
+/load answers {"data": ..., "separate": null, "message": null}; "separate"
+and "message" are used only when the spectra have different x axes.
+Requests need only "x" and "Y" (plus optional "names", units, "history").
 
 Mistakes in a request (unknown method, wrong setting, unreadable file) give
 HTTP 422 with the same plain-English message the library gives.
@@ -117,18 +124,33 @@ def _plain(value: Any) -> Any:
     return value
 
 
-def to_json(data: Spectrum | SpectrumCollection) -> dict:
-    """A Spectrum or collection as the JSON data format (always with a list of rows)."""
+def to_json(data: Spectrum | SpectrumCollection, numbers: bool = True) -> dict:
+    """A Spectrum or collection as the JSON data format (always with a list of rows).
+
+    Every answer has the same fields in the same order. The sizes come first,
+    like MATLAB's size(): "size_Y" is [spectra, points] (one row of Y per
+    spectrum), "size_x" is [points]. With numbers=False, x and Y are left out
+    (null): only the description, for a quick look at a big file.
+    """
     if isinstance(data, Spectrum):
         Y, names = data.y[None, :], [data.name]
     else:
         Y, names = data.Y, list(data.names)
-    out = {"x": _numbers(data.x), "Y": _numbers(Y), "names": names, "x_unit": data.x_unit,
-           "y_unit": data.y_unit, "history": _plain(list(data.history))}
     notes = data.meta.get("load_notes") if isinstance(data.meta, dict) else None
-    if notes:
-        out["notes"] = list(notes)
-    return out
+    return {
+        "n_spectra": int(Y.shape[0]),                            # rows of Y
+        "n_points": int(Y.shape[1]),                             # values in each row, and in x
+        "size_Y": [int(Y.shape[0]), int(Y.shape[1])],            # [spectra, points]
+        "size_x": [int(data.x.size)],
+        "x_range": [float(np.min(data.x)), float(np.max(data.x))] if data.x.size else None,
+        "names": names,
+        "x_unit": data.x_unit,
+        "y_unit": data.y_unit,
+        "notes": list(notes or []),                              # what was assumed while reading
+        "history": _plain(list(data.history)),                   # every processing step, with its settings
+        "x": _numbers(data.x) if numbers else None,
+        "Y": _numbers(Y) if numbers else None,
+    }
 
 
 def from_json(d: dict) -> SpectrumCollection:
@@ -179,19 +201,34 @@ async def _save_upload(file: UploadFile, folder: Path) -> Path:
     return path
 
 
-def _load_answer(result) -> dict:
-    """Answer of /load: one data set, or separate spectra when their x axes differ."""
+def _load_answer(result, numbers: bool = True) -> dict:
+    """Answer of /load, always with the same three fields:
+    "data" (one data set, or null), "separate" (a list of data sets when their
+    x axes differ and cannot be joined, or null) and "message" (null, or why
+    the spectra came back separately)."""
     if isinstance(result, list):
         from .edit import check_axes, combine
+        notes = [n for n in result[0].meta.get("load_notes") or []        # what the reader assumed,
+                 if not n.startswith("The pairs have different x values")]  # except the not-joined remark
         try:                                                    # same x values (gaps allowed): join, nothing changes
             joined = combine(*result, verbose=False)
-            return {"data": to_json(joined), "separate": None}
+            sizes = sorted({len(s.x) for s in result})            # points per spectrum before joining
+            kept = joined.x.size
+            if sizes == [kept]:
+                how = f"all have the same {kept} x values"
+            else:
+                how = (f"they had {sizes[0]}-{sizes[-1]} points each; the {kept} x values they all share "
+                       f"were kept, so up to {sizes[-1] - kept} points per spectrum were dropped")
+            joined = joined.copy_with(meta={**joined.meta, "load_notes": notes + [
+                f"The {len(result)} spectra lie on one x grid and were joined into one set without "
+                f"changing any value: {how}."]})
+            return {"data": to_json(joined, numbers), "separate": None, "message": None}
         except ValueError as e:
             report = check_axes(result)
-            return {"data": None, "separate": [to_json(s) for s in result],
+            return {"data": None, "separate": [to_json(s, numbers) for s in result],
                     "message": f"The spectra have different x axes ({report.case}); "
                                f"choose how to put them on one axis. {e}"}
-    return {"data": to_json(result), "separate": None}
+    return {"data": to_json(result, numbers), "separate": None, "message": None}
 
 
 # ------------------------------------------------------------------ examples
@@ -252,7 +289,11 @@ async def load_file(file: UploadFile = File(...),
                         "How the columns are arranged. auto: detected (the answer's notes say what "
                         "was found). y: one column of intensities. xy: x column, y column. "
                         "pairs: x, y, x, y, ... one pair per spectrum. shared: one x column, "
-                        "then one y column per spectrum."))) -> dict:
+                        "then one y column per spectrum.")),
+                    # False when left out: a form leaves out an unticked box, so a "yes" option must default to no
+                    summary_only: bool = Form(False, description=(
+                        "true: leave out the x and Y numbers (sizes, names and notes only), for a quick "
+                        "look at a big file; the /docs page slows down with many numbers."))) -> dict:
     """Read an uploaded file: text, Excel or .mat (.mat files ignore sheet and layout)."""
     sheet = _blank_to_none(sheet)                                # an empty box means "not given"
     layout = None if layout == "auto" else layout                # None = let the reader detect it
@@ -261,7 +302,7 @@ async def load_file(file: UploadFile = File(...),
     with tempfile.TemporaryDirectory() as folder:               # deleted with everything in it afterwards
         path = await _save_upload(file, Path(folder))
         result = load(path, sheet=sheet, layout=layout, verbose=False)
-    return _load_answer(result)
+    return _load_answer(result, numbers=not summary_only)
 
 
 @app.post("/process")

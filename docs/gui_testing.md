@@ -18,12 +18,16 @@ How to use the page, for every test:
 
 ## A. Loading files (`/load`)
 
+Every answer starts with the sizes: `n_spectra`, `n_points`, `size_Y` [spectra, points]
+and `size_x`, then names, notes and history, and the numbers last. Set
+`summary_only` to true for big files (wt_raw.mat) so the page does not freeze.
+
 - [ ] A1 `A_A_1.asc` → 1 spectrum, 1024 points
 - [ ] A2 `CV10-4M.xlsx` → 14 spectra, 1424 points
 - [ ] A3 `MB 10-4M.xlsx` → 5 spectra; `RhB10-4M.xlsx` → 11 spectra
 - [ ] A4 `CV+RhB+MB.xlsx` → 35 spectra, 618 points
 - [ ] A5 `CV+RhB+MB_data cliped from 1600 to 1700.xlsx` → 35 spectra, 40 points
-- [ ] A6 `wt_raw.mat` → 550 spectra, 747 points; "notes" says which variables were used
+- [ ] A6 `wt_raw.mat` with summary_only = true → size_Y [550, 747]; "notes" says which variables were used
 - [ ] A7 `baseline.m` → code 422, "No numeric data found"
 - [ ] A8 the SINGLECELL map file → code 422, "looks like a map" (takes a few seconds)
 - [ ] A9 an empty text file → 422 "The uploaded file is empty"
@@ -44,7 +48,7 @@ How to use the page, for every test:
 - [ ] D2 `{"steps":[{"step":"despike","method":"compare"}]}` (needs several spectra)
 - [ ] D3 `{"steps":[{"step":"despike","method":"kalkan"}]}`
 - [ ] D4 a setting: `{"steps":[{"step":"despike","threshold":5}]}` (more sensitive)
-- [ ] D5 `wt_raw.mat` with D1: history lists the spikes that were found
+- [ ] D5 D1 on CV10-4M.xlsx: the last "history" entry lists the spikes it removed (in Spectrum 4 and Spectrum 11). wt_raw.mat has none.
 
 ## E. Baseline, 8 methods
 

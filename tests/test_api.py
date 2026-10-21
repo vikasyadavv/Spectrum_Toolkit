@@ -165,3 +165,15 @@ def test_unexpected_error_is_explained(monkeypatch):
     r = TestClient(api.app, raise_server_exceptions=False).post(
         "/load", files={"file": ("two.txt", text_file(2), "text/plain")})
     assert r.status_code == 500 and "KeyError" in r.json()["detail"]
+
+
+def test_load_answer_always_has_the_same_fields():
+    """Sizes first (like MATLAB size), the same keys for every file; summary_only leaves out the numbers."""
+    keys = ["n_spectra", "n_points", "size_Y", "size_x", "x_range", "names", "x_unit", "y_unit",
+            "notes", "history", "x", "Y"]
+    r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")}).json()
+    assert list(r) == ["data", "separate", "message"] and list(r["data"]) == keys
+    assert r["data"]["size_Y"] == [2, X.size] and r["data"]["size_x"] == [X.size] and len(r["data"]["Y"]) == 2
+    r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")},
+                    data={"summary_only": "true"}).json()
+    assert r["data"]["x"] is None and r["data"]["Y"] is None and r["data"]["n_spectra"] == 2
