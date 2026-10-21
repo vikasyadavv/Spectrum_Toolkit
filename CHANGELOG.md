@@ -5,7 +5,7 @@ until 1.0, MINOR goes up for each approved feature.
 
 ## Unreleased
 
-- Feature 10: web service `spectrum_toolkit.api` (FastAPI: health, options, load, process, process-file, figure) as the optional extra `[api]`, and a `Dockerfile` that runs it. Tested in the built image on every file in data/. 20 new tests (`tests/test_api.py`); `conftest.py` skips the module's doctests when FastAPI is not installed.
+- Feature 10: web service `spectrum_toolkit.api` (FastAPI: health, options, load, process, process-file, figure; `summary_only` on load and process-file leaves out the numbers for big files; the process answers start with `"kind": "lines"` so they can be pasted into figure as they are) as the optional extra `[api]`, and a `Dockerfile` that runs it. Tested in the built image on every file in data/. 20 new tests (`tests/test_api.py`); `conftest.py` skips the module's doctests when FastAPI is not installed.
 - Feature 9: recipes (`stk.Recipe`, `stk.apply`, `.apply()` methods): from history or step by step, saved as JSON with every setting, re-applied to data or files; `run` keeps each step. 11 new tests, notebook 11.
 - Bug fixes from running everything on all real data (`scripts/check_all_data.py`): files are closed after loading; long-format map files are recognised with a clear message instead of being misread; repeated x values give a clear error in derivative, spline smoothing, rollingball and snip; clearer message for `normalize("band")` without a band.
 

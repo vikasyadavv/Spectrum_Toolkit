@@ -105,6 +105,11 @@ def test_process_file():
     assert r.status_code == 200, r.text
     x = np.array(r.json()["data"]["x"])
     assert x.min() >= 200 and x.max() <= 1700
+    r = client.post("/process-file", files={"file": ("two.txt", text_file(2), "text/plain")},
+                    data={"recipe": recipe, "summary_only": "true"})
+    d = r.json()["data"]
+    assert d["Y"] is None and d["history"][-1]["step"] == "trim"     # sizes and history, no numbers
+    assert list(r.json())[0] == "kind"                                # ready to paste into /figure
 
 
 @pytest.mark.parametrize("fmt,magic", [("png", b"\x89PNG"), ("tiff", b"II*\x00"), ("pdf", b"%PDF"),

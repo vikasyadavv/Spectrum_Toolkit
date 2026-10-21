@@ -11,9 +11,11 @@ How to use the page, for every test:
   text in the recipe box, "Execute". Code 200 = it ran; the numbers are in
   the response, and the last entry of "history" shows the step and every
   setting it used.
-- **Figure tests** (I to L): after a recipe test, copy its Response body,
-  paste it into `/figure` (replacing everything), add the line given at the
-  top after `{`, "Execute", "Download file".
+- **Figure tests** (I to L): after a recipe test, copy its Response body
+  (the black box under "Server response", not the Curl box). It already starts
+  with `{"kind": "lines", "data": ...`. Paste it into `/figure` (replacing
+  everything), change or add the line given in the test right after `{`,
+  "Execute", "Download file".
 - The default file for every test is `CV10-4M.xlsx` (14 spectra) unless said.
 
 ## A. Loading files (`/load`)
@@ -75,6 +77,8 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] G1 snv (default)  - [ ] G2 max  - [ ] G3 minmax  - [ ] G4 area
 - [ ] G5 vector  - [ ] G6 rsnv  - [ ] G7 msc  - [ ] G8 emsc  - [ ] G9 pqn
 - [ ] G10 band: `{"step":"normalize","method":"band","region":[1600,1640]}` (pick a band of your sample)
+  (the band height is measured above a straight line joining the region ends, so the
+  tallest point can read above 1 when the ends sit on a neighbouring band)
 - [ ] G11 region for one-factor methods: `{"step":"normalize","method":"max","region":[1500,1700]}`
 
 ## H. Derivatives, 4 methods, 1st and 2nd
@@ -86,7 +90,7 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 ## H+. A full recipe
 
 - [ ] H6 `{"steps":[{"step":"despike"},{"step":"trim","lo":400,"hi":1800},{"step":"baseline"},{"step":"smooth"},{"step":"normalize"}]}`
-- [ ] H7 the same on `wt_raw.mat` (550 spectra)
+- [ ] H7 the same on `wt_raw.mat` (550 spectra) with summary_only = true → size_Y [550, 734]
 - [ ] H8 `/process` with `"all_steps": true` → the data after every step
 
 ## I. Figure kinds (add at the top of /figure)

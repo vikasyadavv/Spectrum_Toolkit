@@ -312,13 +312,18 @@ def process(body: dict = Body(..., examples=[EXAMPLE_PROCESS])) -> dict:
     recipe = Recipe(body.get("recipe", {}).get("steps", []))
     if body.get("all_steps"):
         steps = recipe.run(data)
-        return {"data": to_json(steps[-1][1]), "steps": [{"step": n, "data": to_json(d)} for n, d in steps]}
-    return {"data": to_json(recipe.apply(data))}
+        return {"kind": "lines", "data": to_json(steps[-1][1]),
+                "steps": [{"step": n, "data": to_json(d)} for n, d in steps]}
+    return {"kind": "lines", "data": to_json(recipe.apply(data))}
 
 
 @app.post("/process-file")
 async def process_file(file: UploadFile = File(...), recipe: str = Form(..., examples=[EXAMPLE_RECIPE],
-                       description="The processing steps as JSON text, e.g. " + EXAMPLE_RECIPE)) -> dict:
+                       description="The processing steps as JSON text, e.g. " + EXAMPLE_RECIPE),
+                       # False when left out, as in /load
+                       summary_only: bool = Form(False, description=(
+                           "true: leave out the x and Y numbers (sizes, names, notes and history only), "
+                           "for a big file; the /docs page slows down with many numbers."))) -> dict:
     """Load an uploaded file and apply a recipe (JSON text) in one call."""
     try:
         steps = json.loads(recipe)
@@ -328,7 +333,8 @@ async def process_file(file: UploadFile = File(...), recipe: str = Form(..., exa
     with tempfile.TemporaryDirectory() as folder:
         path = await _save_upload(file, Path(folder))
         result = r.apply(path)
-    return {"data": to_json(result)}
+    # "kind" first: the whole answer can be pasted into /figure as it is (change "lines" to stack, mean or image)
+    return {"kind": "lines", "data": to_json(result, numbers=not summary_only)}
 
 
 _TYPES = {"png": "image/png", "tiff": "image/tiff", "jpg": "image/jpeg", "pdf": "application/pdf",
