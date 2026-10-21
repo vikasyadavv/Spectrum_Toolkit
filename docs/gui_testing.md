@@ -107,7 +107,7 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] J3 `"style": "matlab",` (MATLAB colours, square, bold)
 - [ ] J4 one setting changed: `"settings": {"line_width": 2.5, "box_width": 2},`
 - [ ] J5 colours and line type: `"settings": {"colors": "colorblind", "line_style": "--"},`
-- [ ] J6 axes: `"settings": {"aspect": "square", "ticks": "out", "grid": true},`
+- [ ] J6 axes: `"settings": {"aspect": "square", "tick_direction": "out", "grid": true},` (the old name "ticks" also works)
 - [ ] J7 size: `"settings": {"size": "single"},` (8.5 cm journal column)
 
 ## K. Labels and marks

@@ -129,6 +129,17 @@ def test_figure_settings_and_extras():
     assert r.status_code == 200, r.text
 
 
+def test_figure_per_side_settings_and_wrong_value():
+    """Per-side style settings arrive from the website as JSON; a wrong value is a clear 422."""
+    settings = {"box": "closed", "top_tick_length": 9, "x_tick_direction": "in", "left_tick_label_color": "cmyk(0, 1, 1, 0)",
+                "xlabel_italic": True, "title_location": "left", "legend": True, "legend_box": True,
+                "legend_fill": [255, 255, 200], "legend_columns": 2, "tick_sides": ["bottom", "top", "left"]}
+    r = client.post("/figure", json={"data": sample(), "title": "t", "settings": settings, "format": "png", "dpi": 60})
+    assert r.status_code == 200, r.text
+    r = client.post("/figure", json={"data": sample(), "settings": {"top_tick_alpha": 5}})
+    assert r.status_code == 422 and "top_tick_alpha" in r.json()["detail"]
+
+
 def test_figure_wrong_highlight_is_422():
     r = client.post("/figure", json={"data": sample(), "highlight": 0})
     assert r.status_code == 422 and "highlight must be" in r.json()["detail"]

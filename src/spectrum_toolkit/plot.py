@@ -222,7 +222,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     save : file name to save to (type from the extension; dpi and colour
         mode from the style).
     **style_settings : any style setting by name, e.g. aspect="square",
-        box_width=2, line_width=1.5, colors="matlab", ticks="in", grid=False.
+        box_width=2, line_width=1.5, colors="matlab", tick_direction="in", grid=False.
 
     Returns the matplotlib Axes.
     """
@@ -417,6 +417,8 @@ def compare(before: Data, after: Data, index: int | str = 0, *, region: tuple[fl
             ax.invert_xaxis()
         for axis in fig.axes:
             finish_axes(axis, look if axis is ax else ({**look, "aspect": None} if look else None))
+        if rescaled:                                                    # the right axis label in the colour of its line
+            target.yaxis.label.set_color(main)
         fig.tight_layout()
         _save(ax, save, look)
     return ax
