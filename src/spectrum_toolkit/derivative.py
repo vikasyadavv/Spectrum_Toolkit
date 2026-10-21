@@ -145,6 +145,8 @@ def derivative(data: Data, method: str = "savgol", **settings: Any) -> Data:
     order = np.argsort(data.x, kind="stable")                    # all methods expect ascending x
     undo = np.argsort(order)
     x = data.x[order]
+    from .core import require_distinct_x
+    require_distinct_x(x, "derivative")                           # slopes divide by the x spacing
     regrid = method in _EVEN_ONLY and _uneven(x)
     entry = {"step": "derivative", "method": method, **s, **({"regridded": True} if regrid else {})}
     label = data.y_unit or "y"

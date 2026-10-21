@@ -5,6 +5,10 @@ until 1.0, MINOR goes up for each approved feature.
 
 ## Unreleased
 
+- Feature 10: web service `spectrum_toolkit.api` (FastAPI: health, options, load, process, process-file, figure) as the optional extra `[api]`, and a `Dockerfile` that runs it. Tested in the built image on every file in data/. 20 new tests (`tests/test_api.py`); `conftest.py` skips the module's doctests when FastAPI is not installed.
+- Feature 9: recipes (`stk.Recipe`, `stk.apply`, `.apply()` methods): from history or step by step, saved as JSON with every setting, re-applied to data or files; `run` keeps each step. 11 new tests, notebook 11.
+- Bug fixes from running everything on all real data (`scripts/check_all_data.py`): files are closed after loading; long-format map files are recognised with a clear message instead of being misread; repeated x values give a clear error in derivative, spline smoothing, rollingball and snip; clearer message for `normalize("band")` without a band.
+
 - Feature 8, round 2: figure styles (`spectrum_toolkit.style`): 40 named settings, presets clean / publication / matlab, `stk.set_style`, `stk.save_style` (JSON), `stk.get_style`; `stk.export` (png, tiff, jpg, pdf, svg, eps; dpi; RGB or CMYK; folder and name); `stk.scatter` (grouped points like gscatter); `peaks=` and `marks=` labels. 18 new tests, notebook 10 with a style editor.
 
 - Feature 8: `stk.plot` (kinds lines, stack, mean, image; region, styles "clean"/"publication", save) and `stk.compare` (before/after view of a step with a "removed" panel; spikes shaded, baseline drawn). Also as `.plot()` methods. matplotlib is now an optional extra: `spectrum-toolkit[plot]`. 10 new tests, notebook 09.

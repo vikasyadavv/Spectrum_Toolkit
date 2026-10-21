@@ -68,7 +68,8 @@ def load(
     ext = path.suffix.lower()
 
     # ---- pick the reader -------------------------------------------------
-    head = path.open("rb").read(4096)              # first bytes, to recognise the format
+    with path.open("rb") as f:                     # "with" closes the file again straight away
+        head = f.read(4096)                        # first bytes, to recognise the format
     mat = ext in MATLAB or is_mat(head)            # .mat files start with the text "MATLAB"
     if (x is not None or y is not None) and not mat:
         raise ValueError("x= and y= name variables in a .mat file; for other files use x_col= and y_cols=.")

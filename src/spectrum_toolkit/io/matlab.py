@@ -67,7 +67,8 @@ def read_variables(path: str | Path) -> tuple[dict[str, np.ndarray], list[str]]:
     import scipy.io  # imported here so the library loads even without scipy
 
     path = Path(path)
-    head = path.open("rb").read(520)                 # enough to see both kinds of header
+    with path.open("rb") as f:                       # "with" closes the file again straight away
+        head = f.read(520)                           # enough to see both kinds of header
     if head[:10] == b"MATLAB 7.3" or head[512:520] == _HDF5_MAGIC:
         raise ValueError(
             f"{path.name} was saved in MATLAB's v7.3 format (an HDF5 file), which is not supported yet. "

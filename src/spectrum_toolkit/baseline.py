@@ -287,6 +287,9 @@ def find_baseline(data: Data, method: str = "airpls", **settings: Any) -> Data:
     order = np.argsort(data.x, kind="stable")       # all methods expect ascending x
     undo = np.argsort(order)
     x = data.x[order]
+    if method in ("rollingball", "snip"):
+        from .core import require_distinct_x
+        require_distinct_x(x, f"baseline {method!r}")             # its window is in x units
     if isinstance(data, Spectrum):
         z = _one(data.y[order], x, method, s)[undo]
         return data.copy_with(y=z, name=f"{data.name} baseline".strip())

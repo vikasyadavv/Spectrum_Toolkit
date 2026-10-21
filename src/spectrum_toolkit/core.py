@@ -36,6 +36,19 @@ from typing import Any, Iterator
 import numpy as np
 
 
+def require_distinct_x(x: np.ndarray, what: str) -> None:
+    """Raise a clear error if x (sorted ascending) has the same value twice.
+
+    Methods that divide by the spacing between points (derivatives, splines,
+    windows in x units) cannot work when two points share one x value.
+    """
+    repeats = int(np.sum(np.diff(x) == 0))
+    if repeats:
+        raise ValueError(f"{what} needs every x value once, but {repeats} x value(s) appear more than once. "
+                         "Check the file (is it a map, or several spectra in one column?), or remove the "
+                         "repeated points first.")
+
+
 def _as_1d_float(values: Any, name: str) -> np.ndarray:
     """Convert a list/array to a 1-D array of floats, or raise a clear error.
 
@@ -160,6 +173,11 @@ class Spectrum:
         """Draw it with matplotlib; returns the Axes. See ``spectrum_toolkit.plot.plot``."""
         from .plot import plot
         return plot(self, kind=kind, **settings)
+
+    def apply(self, recipe: Any, verbose: bool = False) -> "Spectrum":
+        """Apply a Recipe (or a recipe .json file). See ``spectrum_toolkit.recipe``."""
+        from .recipe import apply
+        return apply(self, recipe, verbose)
 
     def with_step(self, y: np.ndarray, step: str, x: np.ndarray | None = None, **params: Any) -> "Spectrum":
         """Return the result of a processing step, recorded in the history.
@@ -307,6 +325,11 @@ class SpectrumCollection:
         """Draw the spectra with matplotlib; returns the Axes. See ``spectrum_toolkit.plot.plot``."""
         from .plot import plot
         return plot(self, kind=kind, **settings)
+
+    def apply(self, recipe: Any, verbose: bool = False) -> "SpectrumCollection":
+        """Apply a Recipe to every spectrum (or a recipe .json file). See ``spectrum_toolkit.recipe``."""
+        from .recipe import apply
+        return apply(self, recipe, verbose)
 
     @property
     def n_points(self) -> int:

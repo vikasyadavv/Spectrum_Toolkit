@@ -250,7 +250,25 @@ def detect_layout(table: Table) -> str:
     # looks like an x axis (always rising or always falling).
     if n % 2 == 0 and all(_is_monotonic(table.data[:, c]) for c in range(0, n, 2)):
         return "pairs"
+    if _map_shape(table) is not None:
+        return "map"
     return "shared"
+
+
+def _map_shape(table: Table) -> tuple[int, int] | None:
+    """(positions, points per spectrum) if the table is a map in long format,
+    i.e. rows of X, Y, wavenumber, intensity (or X, wavenumber, intensity for a
+    line scan) with the same wavenumbers repeated for every position; else None."""
+    n, rows = table.n_columns, table.data.shape[0]
+    if n not in (3, 4) or rows < 100:
+        return None
+    pos = table.data[:, :n - 2]                                 # X (and Y) columns
+    wave = table.data[:, n - 2]
+    n_pos = len(np.unique(pos, axis=0))
+    n_wave = len(np.unique(wave))
+    if n_pos < 2 or n_wave < 10 or n_pos * n_wave != rows:
+        return None
+    return n_pos, n_wave
 
 
 def _ascending(x: np.ndarray, Y: np.ndarray, notes: list[str]) -> tuple[np.ndarray, np.ndarray]:
@@ -311,6 +329,7 @@ def build(table: Table, name: str, layout: str | None = None,
         "xy": "Two columns: read as x, y.",
         "pairs": f"{table.n_columns} columns read as {table.n_columns // 2} x/y pairs (one spectrum per pair).",
         "shared": f"{table.n_columns} columns read as x plus {table.n_columns - 1} y columns on the same x.",
+        "map": "Map in long format (position, wavenumber, intensity rows).",
     }[layout])
 
     if layout == "y":
@@ -320,6 +339,13 @@ def build(table: Table, name: str, layout: str | None = None,
         return _shared(table, table.data[:, 0], list(range(1, table.n_columns)), name, x_label=table.headers[0], notes=notes)
     if layout == "pairs":
         return _pairs(table, name, notes)
+    if layout == "map":
+        n_pos, n_wave = _map_shape(table) or (0, 0)
+        raise ValueError(
+            f"{name} looks like a map: rows of {', '.join(table.headers[:table.n_columns]) or 'X, Y, wavenumber, intensity'} "
+            f"({n_pos} positions × {n_wave} points). Reading maps in this long format is planned but not "
+            "supported yet (docs/roadmap.md, map files). To read the columns as a plain table anyway, "
+            "give layout='shared'.")
     raise ValueError(f"Unknown layout {layout!r}; use 'y', 'xy', 'pairs' or 'shared'.")
 
 

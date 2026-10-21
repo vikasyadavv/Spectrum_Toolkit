@@ -18,8 +18,14 @@ Each feature moves through: proposed → agreed → built → approved.
 | 2026-10-20 | `data/` stays local, never in git | Files can be large or unpublished. |
 | 2026-10-21 | Combining files never interpolates unless asked (`interpolate=True`) | Interpolation changes the numbers; the user decides. Same-grid data is combined without changing any value. |
 | 2026-10-21 | Method comparisons kept as scripts in `benchmarks/` that write `docs/benchmarks.md` | The numbers behind every default are saved, dated and can be rerun after any change. |
+| 2026-10-21 | Recipes store every setting, defaults included | A saved recipe gives the same result even if a later version changes a default. |
+| 2026-10-21 | Map files in long format are recognised and refused with a clear message until map loading is built | Before, the SINGLECELL map was silently read as 3 wrong spectra of 1.1 million points. |
 | 2026-10-21 | Figure look = a style: a plain dict of named settings (presets clean, publication, matlab), storable as JSON | One place for every visual choice; users keep their own style file; the website can send the same JSON later. |
 | 2026-10-21 | matplotlib only for plotting, as the optional extra `[plot]` | The web server will draw plots in the browser from the numbers; it should not need matplotlib. |
+| 2026-10-21 | The Docker image runs a web service (FastAPI) that the website calls | The website stays a static page; all science runs in the container. Chosen over an image with notebooks only. |
+| 2026-10-21 | The service keeps nothing: each request carries its data; uploads are deleted once read | No storage, no logins, nothing private left on the VM; any number of copies can run. |
+| 2026-10-21 | Only cheminations.com may call the service from a browser (CORS); the container listens on 127.0.0.1 behind the VM's web server | Other websites cannot use our server; HTTPS stays with the existing web server. |
+| 2026-10-21 | The image includes matplotlib, so the website can offer publication figures (tiff, CMYK, 1200 dpi) | Browser plots are for looking; exported figures need the same look as `stk.export`. |
 | 2026-10-20 | Code commented line by line in plain English; every function documented | Anyone can read what each line does. See `conventions.md`. |
 
 ## Features
@@ -38,9 +44,9 @@ Each feature moves through: proposed → agreed → built → approved.
 | 6 | Normalisation: `normalize` (10 methods) | approved 2026-10-21 |
 | 7 | Derivatives: `derivative` (4 methods, 1st and 2nd) | approved 2026-10-21 |
 | - | Benchmarks: `benchmarks/run_all.py` → `docs/benchmarks.md` | approved 2026-10-21 |
-| 8 | Plotting: `stk.plot` (lines, stack, mean, image), `stk.compare` (before/after) | built; round 2 (styles, export) waiting for approval |
-| 9 | Recipes: save and re-apply a processing pipeline | proposed |
-| 10 | Docker image | proposed |
+| 8 | Plotting: `stk.plot` (lines, stack, mean, image), `stk.compare` (before/after) | approved 2026-10-21 (more options can be added later) |
+| 9 | Recipes: `stk.Recipe`, `stk.apply` (save a processing chain as JSON, re-apply in one line) | approved 2026-10-21 |
+| 10 | Docker image with a web service (`spectrum_toolkit.api`, `Dockerfile`) | built 2026-10-21, waiting for approval |
 | later | PCA, MCR, peak fitting | parked |
 | later | Map files (X, Y, wavenumber, intensity tables) as a map with positions | postponed 2026-10-20 |
 
@@ -136,6 +142,37 @@ Each feature moves through: proposed → agreed → built → approved.
   - Extras: `peaks=N` labels the N most prominent bands (position refined between points), `marks={1585: "C=C"}` labelled reference lines, missing fonts fall back quietly (Arial → Liberation Sans on Linux).
   - Notebook 10: a style editor (tabs for figure, box and ticks, text, lines, grid and legend, export) with Export and Save style buttons.
 - Not yet: map images by X/Y position (waits for map loading), interactive plots for the website (those will be drawn in the browser).
+
+## Feature 9 notes (recipes)
+
+- `Recipe.from_history(data)`: everything done to data that can be repeated elsewhere (trim, cut, despike, baseline, smooth, normalize, derivative). select/drop (by name), combine and resample are left out and listed in `recipe.skipped`, with the reason.
+- `Recipe().despike().trim(200, 1750).baseline("asls", lam=1e5)...`: step by step; settings are checked at once, and every setting is stored with its default filled in.
+- `recipe.save("name")` writes readable JSON (name, description, date, toolkit version, steps); `Recipe.load`. `recipe.apply(data or file path)`, `stk.apply(data, "recipe.json")`, `data.apply(recipe)`. A file of x/y pairs with gaps is joined automatically; different x axes ask for `stk.combine(..., interpolate=True)` first.
+- `recipe.run(data)` returns the data after each step, for `stk.compare` plots. An error names the step that failed.
+- normalize with a reference spectrum: the builder stores the reference numbers; from history it cannot (only "given" is recorded), so it is skipped.
+
+## Feature 10 notes (Docker image and web service)
+
+- `src/spectrum_toolkit/api.py`: GET `/health`, GET `/options` (every method with defaults and explanation, every style setting, preset, palette, size: what the website needs to build its forms), POST `/load` (upload a file), POST `/process` (data + recipe steps as JSON; `all_steps` returns the data after each step for before/after views), POST `/process-file` (upload + recipe in one call), POST `/figure` (data + kind + style + settings → png, tiff, jpg, pdf, svg or eps file). Interactive description of every endpoint at `/docs` while it runs.
+- Data format (requests and answers): `{"x": [...], "Y": [[...], ...], "names": [...], "x_unit", "y_unit", "history"}`. Missing values come back as `null`.
+- Mistakes (unknown method, wrong setting, unreadable file, a map file) answer HTTP 422 with the library's own message; uploads over `STK_MAX_UPLOAD_MB` (default 200) answer 413. Files with different x axes come back as separate spectra with a message, never interpolated silently.
+- `Dockerfile`: two stages; the exact versions from `uv.lock`, without dev tools; Liberation fonts (Arial-compatible, for the matlab style); runs as an ordinary user; 2 worker processes; Docker health check on `/health`. Image ≈ 530 MB on disk (124 MB download).
+- Tested 2026-10-21 in the built image: every file in `data/` through `/load` (the .m files and the map answer 422 with clear messages; the 51 MB map in 5 s), a 4-step recipe on all 550 spectra of `wt_raw.mat` in 0.6 s, figures of every kind (600 dpi CMYK tiff 1.8 s). 20 tests in `tests/test_api.py`.
+- Seen on real data: the last 2 points of every spectrum in `wt_raw.mat` are near 0 (the raw counts are about 960), which makes a cliff at 1820 cm⁻¹ after processing. Trim them (`trim(None, 1818)`) until an automatic dead-point check is agreed.
+- Not yet: putting it on the VM and the website page (each needs approval); map files.
+
+## Bug hunt on all real data (2026-10-21)
+
+`scripts/check_all_data.py` runs every method of every feature, every plot kind and style, before/after views and recipes (save, load, re-apply, compare) on every file in `data/`, plus edge cases (10 points, flat, one-spectrum collection, descending x). Found and fixed:
+
+- Loading left the file open (a ResourceWarning on every file): fixed.
+- The SINGLECELL map (X, Y, Wave, Intensity rows) was read as 3 spectra of 1.1 million points; derivatives then gave infinities and two baseline methods crashed. Now recognised as a map with a clear message (1116 positions × 1015 points).
+- Repeated x values made derivatives, spline smoothing and rollingball/snip fail with unclear errors: now one clear message.
+- `normalize("band")` on a region without a band said "band height is zero": now explains how to choose the region.
+- Peak labels could warn on repeated x: fixed.
+- Recipe on a file of x/y pairs failed: such files are now joined automatically when they share x values.
+
+After the fixes: no failures, warnings or non-finite results; only the expected "not a spectrum file" messages (.m, .opju) and the map message.
 
 ## Real data we test with (`data/`)
 

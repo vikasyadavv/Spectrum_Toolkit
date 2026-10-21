@@ -1,0 +1,16 @@
+# Only pyproject.toml, uv.lock, README.md and src/ go into the image.
+# Everything else is left out: smaller, faster builds, and no private data.
+data/
+.venv/
+notebooks/
+benchmarks/
+scripts/
+tests/
+docs/
+docker/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.ipynb_checkpoints/
+.git/
+.DS_Store

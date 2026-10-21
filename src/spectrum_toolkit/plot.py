@@ -133,12 +133,12 @@ def _label_peaks(ax, x, y, peaks, look, region=None):
     pad = 0.02 * np.ptp(y)
     for i in idx:
         xp = x[i]
-        if 0 < i < x.size - 1:
+        if 0 < i < x.size - 1 and x[i - 1] < x[i] < x[i + 1]:
             # Position between the points: top of the parabola through the
             # highest point and its two neighbours (standard peak refinement).
-            a, b, _ = np.polyfit(x[i - 1:i + 2], y[i - 1:i + 2], 2)
+            a, b, _ = np.polyfit(x[i - 1:i + 2] - x[i], y[i - 1:i + 2], 2)
             if a < 0:
-                xp = -b / (2 * a)
+                xp = x[i] - b / (2 * a)
         ax.annotate(f"{xp:.0f}", (x[i], y[i] + pad), ha="center", va="bottom", rotation=90,
                     fontsize=size, annotation_clip=False)
     if len(idx):

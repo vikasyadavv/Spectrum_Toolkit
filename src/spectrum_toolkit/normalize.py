@@ -123,10 +123,15 @@ def _one(x: np.ndarray, y: np.ndarray, method: str, s: dict) -> np.ndarray:
     order = np.argsort(xb)
     xb, yb = xb[order], ym[order]
     under = np.interp(xb, [xb[0], xb[-1]], [yb[0], yb[-1]])      # local baseline under the band
+    above = yb - under
+    if above.max() <= 0:
+        raise ValueError(f"No band in region {s['region']}: nothing rises above the straight line joining "
+                         "the region's ends. Choose a region that holds one whole band with some baseline on "
+                         "both sides.")
     if s["measure"] == "height":
-        return y / _safe((yb - under).max(), "band height")
+        return y / _safe(above.max(), "band height")
     if s["measure"] == "area":
-        return y / _safe(np.trapezoid(yb - under, xb), "band area")
+        return y / _safe(np.trapezoid(above, xb), "band area")
     raise ValueError('measure must be "height" or "area".')
 
 

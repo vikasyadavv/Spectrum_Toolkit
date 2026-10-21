@@ -128,6 +128,9 @@ def smooth(data: Data, method: str = "savgol", **settings: Any) -> Data:
     order = np.argsort(data.x, kind="stable")       # all methods expect ascending x
     undo = np.argsort(order)
     x = data.x[order]
+    if method == "spline":
+        from .core import require_distinct_x
+        require_distinct_x(x, 'smooth "spline"')
     entry = {"step": "smooth", "method": method, **s}
     if isinstance(data, Spectrum):
         y = _one(data.y[order], x, method, s)[undo]

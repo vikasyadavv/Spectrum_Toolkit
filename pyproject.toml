@@ -13,8 +13,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Only needed to draw plots (stk.plot, stk.compare); the web server does not need it.
+# Only needed to draw plots (stk.plot, stk.compare).
 plot = ["matplotlib>=3.8"]
+# The web service (spectrum_toolkit.api) that the website calls; used in the Docker image.
+api = [
+    "fastapi>=0.115",
+    "python-multipart>=0.0.9",
+    "uvicorn>=0.30",
+]
 
 [dependency-groups]
 dev = [
@@ -22,6 +28,7 @@ dev = [
     "jupyterlab>=4",
     "matplotlib>=3.8",
     "ipywidgets>=8",
+    "httpx>=0.27",
 ]
 
 [build-system]

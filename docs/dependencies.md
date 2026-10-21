@@ -27,6 +27,10 @@ Revisit if table editing grows beyond that.
 | jupyterlab | 4.6.4 | 4 | notebooks for trying features | dev only |
 | matplotlib | 3.11.2 | 3.8 | `stk.plot`, `stk.compare`, `stk.scatter`, `stk.export`, notebooks; brings Pillow (tiff, jpg, CMYK) and cycler with it | optional extra `[plot]` (and dev); the library works without it |
 | ipywidgets | 8.1.9 | 8 | tick boxes and sliders in notebooks | dev only |
+| fastapi | 0.156.6 | 0.115 | the web service (`spectrum_toolkit.api`); brings starlette 1.9.0 and pydantic | optional extra `[api]` (in the Docker image) |
+| uvicorn | 0.54.0 | 0.30 | runs the web service | optional extra `[api]` |
+| python-multipart | 0.0.32 | 0.0.9 | reading uploaded files in the web service | optional extra `[api]` |
+| httpx | 0.28.1 | 0.27 | tests of the web service (TestClient) | dev only |
 
 Python: 3.13 for development (matches the Mac setup), 3.11+ supported.
 
@@ -41,6 +45,14 @@ Every new dependency is agreed first and recorded in the table above with its re
 uv add pandas            # runtime dependency
 uv add --dev ruff        # development-only tool
 ```
+
+## Docker image
+
+The `Dockerfile` starts from `python:3.13-slim` and installs uv 0.11.32, then runs
+`uv sync --frozen --no-dev --extra api --extra plot`: the image gets exactly the
+versions in `uv.lock`. After upgrading, rebuild the image (`docker build -t spectrum-toolkit .`)
+and check `/health`. To move to a newer Python, change both `.python-version` and
+the two `FROM python:3.13-slim` lines.
 
 ## Upgrading
 
