@@ -54,7 +54,7 @@ from typing import Any
 import numpy as np
 
 try:
-    from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+    from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse, Response
 except ImportError as e:                                         # only the web service needs FastAPI
@@ -181,6 +181,17 @@ def _load_answer(result) -> dict:
     return {"data": to_json(result), "separate": None}
 
 
+# ------------------------------------------------------------------ examples
+# Shown ready-filled on the /docs page, so "Try it out" works without typing.
+EXAMPLE_RECIPE = '{"steps": [{"step": "despike"}, {"step": "baseline"}, {"step": "normalize"}]}'
+_TINY = {"x": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109],
+         "Y": [[1, 2, 4, 9, 15, 9, 4, 2, 1, 1], [1, 1, 3, 7, 12, 8, 3, 2, 1, 1]],
+         "names": ["a", "b"], "x_unit": "cm-1", "y_unit": "counts"}
+EXAMPLE_PROCESS = {"data": _TINY, "recipe": {"steps": [{"step": "normalize", "method": "max"}]}, "all_steps": False}
+EXAMPLE_FIGURE = {"data": _TINY, "kind": "lines", "style": "publication", "settings": {"line_width": 1.5},
+                  "title": "Example", "format": "png", "dpi": 300, "name": "example"}
+
+
 # ------------------------------------------------------------------ endpoints
 @app.get("/health")
 def health() -> dict:
@@ -229,7 +240,7 @@ async def load_file(file: UploadFile = File(...), sheet: str | None = Form(None)
 
 
 @app.post("/process")
-def process(body: dict) -> dict:
+def process(body: dict = Body(..., examples=[EXAMPLE_PROCESS])) -> dict:
     """Apply a recipe to data sent as JSON."""
     data = _single_or_all(from_json(body.get("data")))
     recipe = Recipe(body.get("recipe", {}).get("steps", []))
@@ -240,12 +251,13 @@ def process(body: dict) -> dict:
 
 
 @app.post("/process-file")
-async def process_file(file: UploadFile = File(...), recipe: str = Form(...)) -> dict:
+async def process_file(file: UploadFile = File(...), recipe: str = Form(..., examples=[EXAMPLE_RECIPE],
+                       description="The processing steps as JSON text, e.g. " + EXAMPLE_RECIPE)) -> dict:
     """Load an uploaded file and apply a recipe (JSON text) in one call."""
     try:
         steps = json.loads(recipe)
     except json.JSONDecodeError as e:
-        raise ValueError(f"recipe is not valid JSON: {e}") from e
+        raise ValueError(f"recipe must be JSON text such as {EXAMPLE_RECIPE} ({e}).") from e
     r = Recipe(steps.get("steps", []) if isinstance(steps, dict) else steps)
     with tempfile.TemporaryDirectory() as folder:
         path = await _save_upload(file, Path(folder))
@@ -258,7 +270,7 @@ _TYPES = {"png": "image/png", "tiff": "image/tiff", "jpg": "image/jpeg", "pdf": 
 
 
 @app.post("/figure")
-def figure(body: dict) -> Response:
+def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     """Draw data and return the figure file."""
     import matplotlib
     matplotlib.use("Agg")                                       # no screen on a server
