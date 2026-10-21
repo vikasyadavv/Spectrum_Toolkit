@@ -150,8 +150,10 @@ def test_load_real_excel():
 def test_load_placeholder_and_empty_boxes():
     """The /docs page fills unused boxes with "string" (or sends them empty): a clear 422, or ignored."""
     r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")}, data={"layout": "string"})
-    assert r.status_code == 422 and "Unknown layout" in r.json()["detail"]
-    r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")}, data={"sheet": "", "layout": " "})
+    assert r.status_code == 422                                # not one of the choices
+    r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")}, data={"sheet": "", "layout": "auto"})
+    assert r.status_code == 200, r.text
+    r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")}, data={"layout": "shared"})
     assert r.status_code == 200, r.text
 
 

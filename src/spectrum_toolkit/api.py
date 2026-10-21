@@ -49,7 +49,7 @@ import re
 import tempfile
 import threading
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -245,13 +245,17 @@ def options() -> dict:
 @app.post("/load")
 async def load_file(file: UploadFile = File(...),
                     sheet: str | None = Form(None, examples=[""], description=(
-                        "Excel only: sheet name or number (1 = first). Leave empty for the default.")),
-                    layout: str | None = Form(None, examples=[""], description=(
-                        "Leave empty to detect it. Or force: 'y', 'xy', 'pairs' (x/y column pairs) "
-                        "or 'shared' (one x column, many y columns)."))) -> dict:
-    """Read an uploaded file: text, Excel or .mat."""
+                        "Excel files only; ignored for other files. Empty: the sheet with the most "
+                        "numbers is read (the answer's notes say which). Or a sheet name (Sheet1) "
+                        "or number (1 = first sheet).")),
+                    layout: Literal["auto", "y", "xy", "pairs", "shared"] = Form("auto", description=(
+                        "How the columns are arranged. auto: detected (the answer's notes say what "
+                        "was found). y: one column of intensities. xy: x column, y column. "
+                        "pairs: x, y, x, y, ... one pair per spectrum. shared: one x column, "
+                        "then one y column per spectrum."))) -> dict:
+    """Read an uploaded file: text, Excel or .mat (.mat files ignore sheet and layout)."""
     sheet = _blank_to_none(sheet)                                # an empty box means "not given"
-    layout = _blank_to_none(layout)
+    layout = None if layout == "auto" else layout                # None = let the reader detect it
     if sheet is not None and sheet.isdigit():                    # "2" from a form is sheet number 2
         sheet = int(sheet)
     with tempfile.TemporaryDirectory() as folder:               # deleted with everything in it afterwards
