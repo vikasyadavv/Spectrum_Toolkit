@@ -129,6 +129,20 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] L8 `"transparent": true, "format": "png",`
 - [ ] L9 `"name": "my_figure",` → the downloaded file is my_figure.png
 
+## M. Section 7: axes, notes, inset, panels
+
+- [ ] M1 `"settings": {"y_log": true},` (log y; values of 0 and below are not drawn)
+- [ ] M2 `"settings": {"top_axis": "wavelength", "top_axis_laser": 532, "right_axis": "scale", "right_axis_scale": 0.1, "right_axis_label": "Counts per second"},`
+- [ ] M3 after a recipe with `cut` 1250 to 1300: `"settings": {"cut_marks": true, "box": "closed"},` (line breaks, // on the box)
+- [ ] M4 `"kind": "stack", "settings": {"line_names": true, "legend": false, "scale_bar": 0.5},` (then `"legend": true` for both)
+- [ ] M5 `"kind": "mean", "settings": {"mean_band": "minmax"},` (also "2std", "ci95", "none")
+- [ ] M6 `"kind": "image", "settings": {"color_limits": [0, 1000], "image_y": "name", "colorbar_label": "counts"},`
+- [ ] M7 `"notes": [{"text": "G band", "x": 1400, "y": 0.9, "arrow": [1585, 0.75], "color": "red", "box": true}],`
+- [ ] M8 `"inset": {"region": [1550, 1650], "position": "upper left"},`
+- [ ] M9 panels, in place of `"data"`: `"panels": [{"data": <data>, "kind": "stack"}, {"data": <data>, "kind": "mean", "settings": {"line_width": 2}}], "layout": [1, 2], "share_y": true, "title": "Both",`
+- [ ] M10 `"settings": {"font": "Comic Sans MS"},` → the figure comes back, and the answer has an `X-Warning` header naming the font
+- [ ] M11 `"settings": {"tight": false},` → the file keeps the exact figure size (white space kept)
+
 ## Not reachable from the page yet
 
 These work in Python (notebooks) but have no endpoint yet. Say which ones

@@ -221,3 +221,25 @@ def test_figure_marks_and_highlight_with_own_settings():
     assert client.post("/figure", json=body).status_code == 200
     r = client.post("/figure", json={**body, "marks": {"1000": {"colour": "red"}}})
     assert r.status_code == 422 and "marks" in r.json()["detail"]
+
+
+def test_figure_notes_inset_and_panels():
+    body = {"data": sample(), "notes": [{"text": "here", "x": 1000, "y": 0.5, "arrow": [1000, 1]}],
+            "inset": [950, 1050]}
+    r = client.post("/figure", json=body)
+    assert r.status_code == 200 and "x-warning" not in r.headers
+    panels = {"panels": [{"data": sample(), "kind": "stack", "peaks": 1, "settings": {"line_width": 2}},
+                         {"data": sample(2), "kind": "mean", "marks": {"1000": "M"}, "letter": "(z)"}],
+              "layout": [1, 2], "share_y": True, "title": "Both"}
+    assert client.post("/figure", json=panels).status_code == 200
+    r = client.post("/figure", json={"panels": [{"data": sample(), "settings": {"nonsense": 1}}]})
+    assert r.status_code == 422 and "Panel 1" in r.json()["detail"]
+    r = client.post("/figure", json={"panels": "two"})
+    assert r.status_code == 422
+
+
+def test_figure_warns_about_missing_fonts():
+    r = client.post("/figure", json={"data": sample(), "settings": {"font": "No Such Font"}},
+                    headers={"Origin": "https://cheminations.com"})
+    assert r.status_code == 200 and "No Such Font" in r.headers["x-warning"]
+    assert "x-warning" in r.headers["access-control-expose-headers"].lower()

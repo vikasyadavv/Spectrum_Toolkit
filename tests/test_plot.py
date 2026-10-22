@@ -243,3 +243,123 @@ def test_highlight_ranges_with_own_settings_and_labels():
 def test_math_text_in_labels():
     ax = _bands().plot(marks={1000: r"$\nu_{as}$(CH$_2$)"})
     ax.figure.canvas.draw()                                             # math text is drawn without error
+
+
+# ------------------------------------------------------------------ wish list section 7
+def test_log_scales_and_second_axes():
+    c = _bands()
+    ax = c.plot(x_log=True, y_log=True)
+    assert ax.get_xscale() == "log" and ax.get_yscale() == "log"
+    ax = c.plot(top_axis="wavelength", top_axis_laser=532, right_axis="scale", right_axis_scale=0.1,
+                right_axis_label="cps")
+    top, right = ax.child_axes
+    assert top.get_xlabel() == "Wavelength (nm)" and right.get_ylabel() == "cps"
+    # 1000 cm⁻¹ from a 532 nm laser is at 1e7 / (1e7/532 - 1000) = 561.89 nm
+    forward = top._functions[0]
+    assert forward(1000) == pytest.approx(561.89, abs=0.01)
+    assert not ax.xaxis.get_tick_params(which="major").get("labeltop", False)
+
+
+def test_cut_breaks_the_line_and_marks_the_gap():
+    c = _bands().cut(1200, 1300)
+    ax = c.plot(cut_marks=True, box="closed")
+    y = ax.get_lines()[0].get_ydata()
+    assert np.isnan(y).sum() == 1                                        # one break, where the cut was
+    marks = [l for l in ax.get_lines() if l.get_label() == "_cut mark"]
+    assert len(marks) == 2                                               # bottom and (closed box) top
+    ax = c.plot()                                                        # off by default: no break
+    assert not np.isnan(ax.get_lines()[0].get_ydata()).any()
+
+
+def test_line_names_with_or_without_legend_and_scale_bar_beside_them():
+    c = _bands()
+    ax = c.plot(kind="stack", line_names=True, legend=False, scale_bar=500)
+    assert ax.get_legend() is None
+    names = [t for t in ax.texts if t.get_text() in c.names]
+    assert len(names) == len(c.names)
+    ax = c.plot(kind="stack", line_names=True, legend=True, scale_bar=500)
+    assert ax.get_legend() is not None                                   # both, when asked
+    r = ax.figure.canvas.get_renderer()
+    bar_text = next(t for t in ax.texts if t.get_text().startswith("500"))
+    for t in ax.texts:
+        t.update_positions(r)
+    reach = max(t.get_window_extent(r).x1 for t in ax.texts if t.get_text() in c.names)
+    assert bar_text.get_window_extent(r).x0 > reach                      # the bar's text is past the names
+
+
+def test_mean_band_kinds():
+    c = _bands()
+    for kind in ("std", "2std", "minmax", "ci95"):
+        ax = c.plot(kind="mean", mean_band=kind)
+        assert len(ax.collections) == 1
+    assert not c.plot(kind="mean", mean_band="none").collections
+
+
+def test_image_limits_names_and_colorbar():
+    c = _bands()
+    ax = c.plot(kind="image", color_limits=[0, 1000], image_y="name", colorbar_ticks_at=[0, 500, 1000])
+    mesh = ax.collections[0]
+    assert mesh.get_clim() == (0, 1000)
+    assert [t.get_text() for t in ax.get_yticklabels()] == list(c.names)
+    assert len(ax.figure.axes) == 2                                      # the plot and its colour bar
+    ax = c.plot(kind="image", colorbar=False)
+    assert len(ax.figure.axes) == 1
+    assert all(float(v).is_integer() for v in ax.get_yticks())           # whole spectrum numbers
+
+
+def test_notes_with_arrow_and_own_settings():
+    c = _bands()
+    ax = c.plot(notes=[{"text": "band", "x": 1100, "y": 2000, "arrow": [1000, 3000], "color": "red", "box": True},
+                       {"text": "corner", "x": 0.1, "y": 0.9, "coords": "axes"}])
+    band, corner = ax.texts
+    assert band.arrow_patch is not None and corner.arrow_patch is None
+    assert band.get_bbox_patch() is not None
+    from matplotlib.colors import to_rgba
+    assert to_rgba(band.get_color()) == to_rgba("red")
+    for bad in ([{"x": 1, "y": 2}], [{"text": "a", "x": 1, "y": 2, "colour": "red"}], "text"):
+        with pytest.raises(ValueError, match="notes"):
+            c.plot(notes=bad)
+
+
+def test_inset_zooms_and_keeps_clear_of_the_legend():
+    c = _bands()
+    ax = c.plot(inset={"region": [950, 1050], "position": "upper left"})
+    small = ax.child_axes[0]
+    assert small.get_xlim() == pytest.approx((950, 1050))
+    assert len(small.get_lines()) == len(c.names)
+    r = ax.figure.canvas.get_renderer()
+    assert not ax.get_legend().get_window_extent(r).overlaps(small.get_tightbbox(r))
+    with pytest.raises(ValueError, match="inset"):
+        c.plot(inset={"region": [950, 1050], "size": 2})
+
+
+def test_panels_layout_letters_and_sharing():
+    c = _bands()
+    axes = stk.panels([c, {"data": c, "kind": "stack", "peaks": 2, "line_width": 2}, {"data": c, "kind": "mean"}])
+    assert len(axes) == 3 and len(axes[0].figure.axes) == 3              # one column of three
+    assert [t.get_text() for ax in axes for t in ax.texts if t.get_text().startswith("(")] == ["(a)", "(b)", "(c)"]
+    assert axes[1].get_lines()[0].get_linewidth() == 2                    # the panel's own setting
+    axes = stk.panels([c, c, c], layout=[2, 2], share_x=True, share_y=True, panel_letter_case="upper",
+                      panel_letter_format="{}", title="All")
+    assert len(axes[0].figure.axes) == 3                                  # the empty fourth place is removed
+    assert axes[0].figure.get_suptitle() == "All"
+    assert "A" in [t.get_text() for t in axes[0].texts]
+    axes[0].figure.canvas.draw()
+    labelled = [any(t.get_visible() and t.get_text() for t in ax.get_xticklabels()) for ax in axes]
+    assert labelled == [False, True, True]                               # numbers only under the bottom panels
+    assert axes[1].get_ylabel() == "" and axes[0].get_ylabel()
+    axes = stk.panels([c, {"data": c, "letter": False}, {"data": c, "letter": "(z)"}], panel_letters=False)
+    assert [t.get_text() for ax in axes for t in ax.texts] == ["(z)"]
+    for bad, match in (([], "panels"), ([{"kind": "mean"}], "data")):
+        with pytest.raises(ValueError, match=match):
+            stk.panels(bad)
+    with pytest.raises(ValueError, match="layout"):
+        stk.panels([c] * 5, layout=[2, 2])
+    with pytest.raises(ValueError, match="Panel 2"):
+        stk.panels([c, {"data": c, "nonsense": 1}])
+
+
+def test_panels_save(tmp_path):
+    c = _bands()
+    stk.panels([c, c], save=str(tmp_path / "two.png"))
+    assert (tmp_path / "two.png").exists()

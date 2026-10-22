@@ -261,7 +261,108 @@ SETTINGS: dict[str, tuple[Any, str]] = {
     "spike_alpha": (0.15, "spike fill transparency, 0 to 1"),
     # text on the plot (mark labels, peak labels, highlight labels): see _TEXT_KEYS below
     "label_overlap": ("move", '"move" (labels that would overlap are moved apart) or "keep" (left where they are)'),
+    # scale (wish list 7)
+    "x_log": (False, "logarithmic x scale: true or false"),
+    "y_log": (False, "logarithmic y scale: true or false (values of 0 and below are not drawn)"),
+    # a second axis on top (another x unit) and on the right (another y unit); their ticks and
+    # numbers follow the top_... and right_... tick settings, their labels the xlabel_ / ylabel_ settings
+    "top_axis": ("none", '"none", "wavelength" (absolute wavelength in nm for the laser top_axis_laser) '
+                         'or "scale" (x times top_axis_scale plus top_axis_offset)'),
+    "top_axis_laser": (532.0, 'laser wavelength in nm, for top_axis "wavelength"'),
+    "top_axis_scale": (1.0, 'factor for top_axis "scale"'),
+    "top_axis_offset": (0.0, 'added after the factor, for top_axis "scale"'),
+    "top_axis_label": (None, 'top axis label; None = "Wavelength (nm)", or the x label for "scale"'),
+    "right_axis": ("none", '"none" or "scale" (y times right_axis_scale plus right_axis_offset)'),
+    "right_axis_scale": (1.0, 'factor for right_axis "scale", e.g. 0.1 for counts per second at 10 s exposure'),
+    "right_axis_offset": (0.0, 'added after the factor, for right_axis "scale"'),
+    "right_axis_label": (None, "right axis label; None = the y label"),
+    # gaps left by cut (edit.cut): break the line there and mark the gap on the box
+    "cut_marks": (False, "break the line where cut removed points, and mark the gap with // on the box: "
+                         "true or false"),
+    "cut_mark_size": (8.0, "size of the // marks in points"),
+    "cut_mark_color": (None, "colour of the // marks; None = box_color"),
+    "cut_mark_width": (None, "line width of the // marks in points; None = box_width"),
+    # spectrum names written next to the lines (with or without a legend)
+    "line_names": (False, "write each spectrum's name next to its line: true or false (the legend is set apart, "
+                          "by legend)"),
+    "line_name_position": ("right", '"right" or "left" end of the line'),
+    "line_name_color": ("line", 'name colour; "line" = the colour of its spectrum'),
+    "line_name_alpha": (1.0, "name transparency, 0 to 1"),
+    "line_name_size": (None, "name size in points; None = legend_size"),
+    "line_name_weight": (None, '"normal" or "bold"; None = font_weight'),
+    "line_name_italic": (False, "names in italics: true or false"),
+    "line_name_font": (None, "name font; None = font"),
+    "line_name_pad": (3.0, "distance between the end of the line and its name, in points"),
+    # scale bar: shows the size of the y unit when the y numbers are hidden (stacked spectra)
+    "scale_bar": (None, "height of a vertical bar in y units, e.g. 1000; None = no bar"),
+    "scale_bar_label": (None, 'text next to the bar; None = the height and the y unit, e.g. "1000 counts"'),
+    "scale_bar_position": ("right", '"right" or "left" of the box'),
+    "scale_bar_color": ("black", "bar and text colour"),
+    "scale_bar_alpha": (1.0, "bar and text transparency, 0 to 1"),
+    "scale_bar_width": (2.0, "bar line width in points"),
+    "scale_bar_label_size": (None, "text size in points; None = 0.75 x font_size"),
+    "scale_bar_label_weight": (None, '"normal" or "bold"; None = font_weight'),
+    "scale_bar_label_italic": (False, "text in italics: true or false"),
+    "scale_bar_label_font": (None, "text font; None = font"),
+    # mean plots (kind "mean"): the shaded band around the mean
+    "mean_band": ("std", '"std" (±1 standard deviation), "2std", "minmax" (lowest to highest), "ci95" (95 % '
+                         'confidence of the mean) or "none"'),
+    "mean_band_color": (None, "band colour; None = line colour"),
+    "mean_band_alpha": (0.25, "band transparency, 0 to 1"),
+    # image plots (kind "image")
+    "color_limits": (None, "intensity of the lowest and highest colour [lo, hi]; either may be None "
+                           "(automatic: the 1st and 99th percentile)"),
+    "colorbar": (True, "colour bar next to the image: true or false"),
+    "colorbar_label": (None, "colour bar label; None = the y unit"),
+    "colorbar_ticks_at": (None, "colour bar tick positions, e.g. [0, 500, 1000]; None = automatic"),
+    "colorbar_length": (1.0, "colour bar length relative to the plot height, 0 to 1"),
+    "colorbar_fraction": (0.15, "share of the plot width given to the colour bar (with its gap)"),
+    "image_y": ("number", '"number" (spectrum numbers) or "name" (spectrum names) on the y axis'),
+    # notes: free text on the plot (plot's notes), optionally with an arrow. One note can change these
+    # for itself: notes=[{"text": "D band", "x": 1350, "y": 0.8, "color": "red"}] (the names without "note_").
+    "note_color": ("black", "note text colour"),
+    "note_alpha": (1.0, "note text transparency, 0 to 1"),
+    "note_size": (None, "note text size in points; None = font_size"),
+    "note_weight": (None, '"normal" or "bold"; None = font_weight'),
+    "note_italic": (False, "note in italics: true or false"),
+    "note_font": (None, "note font; None = font"),
+    "note_rotation": (0, "note rotation in degrees"),
+    "note_box": (False, "a box behind the note: true or false"),
+    "note_box_color": ("none", 'note box line colour; "none" = no line'),
+    "note_fill": ("white", "colour inside the note box"),
+    "note_fill_alpha": (0.8, "note box fill transparency, 0 to 1"),
+    "note_arrow_color": ("black", "arrow colour"),
+    "note_arrow_alpha": (1.0, "arrow transparency, 0 to 1"),
+    "note_arrow_width": (1.0, "arrow line width in points"),
+    "note_arrow_style": ("-", 'arrow line type: "-", "--", ":" or "-."'),
+    "note_arrow_head": ("->", '"->" open head, "-|>" filled head, or "-" no head'),
+    # inset: a small zoomed view of an x range inside the plot (plot's inset)
+    "inset_position": ("upper right", '"upper left", "upper right", "lower left" or "lower right"'),
+    "inset_scale": (0.4, "inset size relative to the plot, 0 to 1"),
+    "inset_lines": (True, "frame the zoomed range in the plot and join it to the inset: true or false"),
+    "inset_line_color": ("0.4", "frame and joining line colour"),
+    "inset_line_alpha": (1.0, "frame and joining line transparency, 0 to 1"),
+    "inset_line_width": (0.8, "frame and joining line width in points"),
+    "inset_line_style": ("-", 'frame and joining line type: "-", "--", ":" or "-."'),
+    "inset_tick_label_size": (None, "inset tick label size in points; None = 0.8 x tick_label_size"),
+    "inset_tick_count": (3, "about how many numbered ticks on each inset axis; None = automatic"),
+    # panels (stk.panels): several plots in one figure, each with a letter
+    "panel_letters": (True, "a letter on each panel, (a), (b) ...: true or false"),
+    "panel_letter_format": ("({})", 'how the letter is written: "({})" -> (a), "{})" -> a), "{}" -> a'),
+    "panel_letter_case": ("lower", '"lower" (a, b, c) or "upper" (A, B, C)'),
+    "panel_letter_position": ("outside", '"outside" (above the top left corner of the box) or "inside" '
+                                         '(in the top left corner)'),
+    "panel_letter_size": (None, "letter size in points; None = 1.2 x font_size"),
+    "panel_letter_weight": ("bold", '"normal" or "bold"'),
+    "panel_letter_color": ("black", "letter colour"),
+    "panel_letter_alpha": (1.0, "letter transparency, 0 to 1"),
+    "panel_letter_italic": (False, "letters in italics: true or false"),
+    "panel_letter_font": (None, "letter font; None = font"),
+    "panel_spacing": (0.02, "extra space between panels, as a fraction of the figure (0 = only the room "
+                            "their labels need)"),
     # saving
+    "tight": (True, "cut the white space around the figure when saving: true or false (false keeps the exact "
+                    "figure size)"),
     "dpi": (300, "dots per inch for png, tiff and jpg"),
     "format": ("png", "file type when the name has no extension: png, tiff, jpg, pdf, svg, eps"),
     "color_mode": ("rgb", '"rgb" or "cmyk" (cmyk only for tiff and jpg)'),
@@ -330,6 +431,16 @@ CHOICES: dict[str, tuple] = {
     "title_location": ("left", "center", "right"),
     "legend_order": ("normal", "reverse"),
     "mark_span": ("full", "peak", "tick"),
+    "top_axis": ("none", "wavelength", "scale"),
+    "right_axis": ("none", "scale"),
+    "line_name_position": ("right", "left"),
+    "scale_bar_position": ("right", "left"),
+    "mean_band": ("std", "2std", "minmax", "ci95", "none"),
+    "image_y": ("number", "name"),
+    "note_arrow_head": ("->", "-|>", "-"),
+    "inset_position": ("upper left", "upper right", "lower left", "lower right"),
+    "panel_letter_case": ("lower", "upper"),
+    "panel_letter_position": ("outside", "inside"),
     "label_overlap": ("move", "keep"),
     **{f"{_what}_position": ("top", "peak") for _what in TEXTS},
 }
@@ -447,18 +558,33 @@ def _check_one(name: str, value) -> None:
     if name in ("peak_sensitivity",) and (not isinstance(value, (int, float)) or isinstance(value, bool)
                                           or not 0 <= value < 1):
         raise ValueError(f"peak_sensitivity must be a number from 0 to 1, e.g. 0.02; got {value!r}.")
+    if name.endswith(("_offset", "_laser", "_fraction", "_length", "_scale")) or name == "scale_bar":
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            raise ValueError(f"{name} must be a number; got {value!r}.")
+        if name in ("top_axis_laser", "scale_bar", "colorbar_fraction", "colorbar_length") and value <= 0:
+            raise ValueError(f"{name} must be more than 0; got {value!r}.")
+    if name == "panel_spacing" and isinstance(value, (int, float)) and not 0 <= value <= 0.5:
+        raise ValueError(f"panel_spacing must be from 0 to 0.5 (a fraction of the figure); got {value!r}.")
+    if name in ("colorbar_length", "inset_scale", "colorbar_fraction") and not 0 < value <= 1:
+        raise ValueError(f"{name} must be more than 0 and at most 1; got {value!r}.")
+    if name == "color_limits" and not (isinstance(value, (list, tuple)) and len(value) == 2 and all(
+            v is None or (isinstance(v, (int, float)) and not isinstance(v, bool)) for v in value)):
+        raise ValueError(f"color_limits must be [lo, hi], each a number or None; got {value!r}.")
+    if name == "panel_letter_format" and (not isinstance(value, str) or "{}" not in value):
+        raise ValueError(f'panel_letter_format must contain {{}} where the letter goes, e.g. "({{}})"; got {value!r}.')
     if name == "marker_every" and (not isinstance(value, int) or isinstance(value, bool) or value < 1):
         raise ValueError(f"marker_every must be a whole number of 1 or more; got {value!r}.")
     if name.endswith("_alpha"):
         if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
             raise ValueError(f"{name} is a transparency from 0 (invisible) to 1 (solid); got {value!r}.")
     if (name.endswith(("_color", "_fill")) or name in ("background", "plot_background")) \
-            and value != "none" and not (name == "peak_label_color" and value == "line"):
+            and value != "none" and not (name in ("peak_label_color", "line_name_color") and value == "line"):
         to_rgba(value, name=name)                                    # raises a clear error if not a colour
     if name.endswith(("_length", "_width", "_size", "_pad", "_rotation", "_spacing", "_scale")) \
             and name != "size" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
         raise ValueError(f"{name} must be a number; got {value!r}.")
-    if (name in ("legend_box", "legend_shadow", "legend_box_round", "minor_ticks", "fill", "peak_line")
+    if (name in ("legend_box", "legend_shadow", "legend_box_round", "minor_ticks", "fill", "peak_line", "x_log",
+                 "y_log", "cut_marks", "line_names", "colorbar", "inset_lines", "panel_letters", "tight")
             or name.endswith(("_italic", "_ticks", "_tick_labels", "_box", "minor_ticks"))) \
             and name != "box" and not isinstance(value, bool):
         raise ValueError(f"{name} must be true or false; got {value!r}.")
@@ -709,6 +835,17 @@ def _fonts(wanted: str) -> list[str]:
         warnings.warn(f"Font {wanted!r} is not installed here; using {(found or ['sans-serif'])[0]!r} instead.",
                       stacklevel=4)
     return found or ["sans-serif", "DejaVu Sans"]
+
+
+def missing_fonts(look: dict | None) -> list[str]:
+    """The fonts a style asks for that are not installed here (another font is used for them)."""
+    if look is None:
+        return []
+    from matplotlib import font_manager
+    installed = {f.name for f in font_manager.fontManager.ttflist}
+    wanted = {value for name, value in look.items()
+              if (name == "font" or name.endswith("_font")) and isinstance(value, str)}
+    return sorted(f for f in wanted if f not in installed and f not in ("sans-serif", "serif", "monospace"))
 
 
 def setting(look: dict, key: str, axis: str | None = None, side: str | None = None):
@@ -962,6 +1099,11 @@ def finish_axes(ax, look: dict | None) -> None:
     if look is None:
         return
     import matplotlib.ticker as mticker
+    ax.figure._spectrum_tight = look["tight"]                    # read by export
+    if look["x_log"]:                                            # before the tick settings: a scale resets them
+        ax.set_xscale("log")
+    if look["y_log"]:
+        ax.set_yscale("log")
     if look["aspect"] == "square":
         ax.set_box_aspect(1)
     elif look["aspect"] is not None:
@@ -990,6 +1132,17 @@ def finish_axes(ax, look: dict | None) -> None:
     _style_box(ax, look, twin)
     _style_ticks(ax, look, twin)
     _style_labels_and_title(ax, look)
+    place_outside_legend(ax, look)
+
+
+def place_outside_legend(ax, look: dict | None) -> None:
+    """Put a legend that is outside top or outside bottom just clear of the labels.
+
+    It is measured from what is drawn, so it is run again (by panels) once
+    the figure layout has changed the size of the box.
+    """
+    if look is None:
+        return
     if look["legend_location"] == "outside top" and ax.get_legend() is not None:
         _legend_on_top(ax, look)
     if look["legend_location"] == "outside bottom" and ax.get_legend() is not None:
@@ -1108,19 +1261,22 @@ def export(fig_or_ax, name: str | Path = "figure", *, folder: str | Path | None 
     path = path.with_suffix("." + fmt)
     path.parent.mkdir(parents=True, exist_ok=True)
     dpi = dpi or look["dpi"]
+    # tight: the style given here, else the style the figure was drawn with (see finish_axes)
+    tight = look["tight"] if style is not None else getattr(fig, "_spectrum_tight", True)
+    margins = "tight" if tight else None
     color = (color or look["color_mode"]).lower()
     if color not in ("rgb", "cmyk"):
         raise ValueError('color must be "rgb" or "cmyk".')
     if color == "cmyk" and fmt not in ("tiff", "jpg"):
         raise ValueError(f"CMYK is possible for tiff and jpg files, not {fmt}. Use format='tiff', or color='rgb'.")
     if color == "rgb" and fmt != "tiff":
-        fig.savefig(path, format=fmt, dpi=dpi, bbox_inches="tight", transparent=transparent)
+        fig.savefig(path, format=fmt, dpi=dpi, bbox_inches=margins, transparent=transparent)
         return path
     # tiff (any colour) and cmyk jpg: draw to a picture first, then let Pillow
     # write it, so we can convert colours and compress the tiff losslessly (LZW).
     from PIL import Image
     buffer = BytesIO()
-    fig.savefig(buffer, format="png", dpi=dpi, bbox_inches="tight", transparent=transparent and color == "rgb")
+    fig.savefig(buffer, format="png", dpi=dpi, bbox_inches=margins, transparent=transparent and color == "rgb")
     buffer.seek(0)
     image = Image.open(buffer)
     image = image.convert("CMYK") if color == "cmyk" else image

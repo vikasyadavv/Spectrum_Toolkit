@@ -83,10 +83,34 @@ PICTURE_LIST = [
      dict(highlight=[{"range": [1560, 1640], "label": "G band", "color": "blue", "edge_color": "blue"},
                      {"range": [1330, 1410], "label": "D band", "hatch": "//", "color": "0.5", "alpha": 0.1}],
           highlight_label_weight="bold", highlight_label_size=10)),
+    ("second_axes.png", "A second x axis on top (absolute wavelength for a 532 nm laser) and a second y axis "
+                        "on the right (counts per second at 10 s exposure).",
+     dict(top_axis="wavelength", top_axis_laser=532, right_axis="scale", right_axis_scale=0.1,
+          right_axis_label="Counts per second", box="closed")),
+    ("cut_marks.png", "The range 1250 to 1300 removed with cut: the lines break there and // marks show the gap "
+                      "on the box.",
+     dict(cut_marks=True, box="closed")),
+    ("names_scale_bar.png", "Stacked spectra with each name next to its line (no legend) and a scale bar "
+                            "showing the size of 0.5 intensity units.",
+     dict(kind="stack", line_names=True, legend=False, scale_bar=0.5)),
+    ("mean_band.png", "The mean of the three spectra with a band from the lowest to the highest value.",
+     dict(kind="mean", mean_band="minmax", mean_band_alpha=0.3)),
+    ("image.png", "The spectra as an image, with their names on the y axis, fixed colour limits and chosen "
+                  "colour bar ticks.",
+     dict(kind="image", image_y="name", color_limits=[0, 0.8], colorbar_ticks_at=[0, 0.4, 0.8],
+          colorbar_label="Intensity")),
+    ("notes_inset.png", "A note in a box with an arrow to a band, a bold note placed by its share of the box, "
+                        "and an inset zoomed on 1550 to 1650 at the upper left.",
+     dict(notes=[{"text": "G band", "x": 1350, "y": 0.9, "arrow": [1585, 0.78], "color": "red", "box": True},
+                 {"text": "Sample set 1", "x": 0.5, "y": 0.4, "coords": "axes", "weight": "bold"}],
+          inset={"region": [1550, 1650], "position": "upper left"}, inset_scale=0.35)),
 ]
 
+# Pictures drawn from other data than the example spectra as they are.
+PICTURE_DATA = {"cut_marks.png": lambda d: d.cut(1250, 1300)}
+
 # Arguments of plot itself (not style settings): passed apart from the settings.
-PLOT_ARGUMENTS = ("kind", "title", "emphasize", "peaks", "marks", "highlight", "region")
+PLOT_ARGUMENTS = ("kind", "title", "emphasize", "peaks", "marks", "highlight", "region", "notes", "inset")
 
 
 def make_pictures() -> None:
@@ -97,9 +121,15 @@ def make_pictures() -> None:
     for name, _, settings in PICTURE_LIST:
         settings = dict(settings)
         extra = {k: settings.pop(k) for k in PLOT_ARGUMENTS if k in settings}
-        ax = data.plot(size=(16, 8), **extra, **settings)
+        shown = PICTURE_DATA.get(name, lambda d: d)(data)
+        ax = shown.plot(size=(16, 8), **extra, **settings)
         stk.export(ax, PICTURES / name, dpi=110)
         plt.close("all")
+    # several plots in one figure (stk.panels)
+    axes = stk.panels([data, {"data": data, "kind": "stack", "peaks": 3}, {"data": data, "kind": "mean"},
+                       {"data": data, "kind": "image"}], layout=[2, 2], size=(12, 7))
+    stk.export(axes[0], PICTURES / "panels.png", dpi=90)
+    plt.close("all")
 
 
 # ------------------------------------------------------------------ text
@@ -128,10 +158,11 @@ def picture(name: str) -> str:
     import json
     _, caption, settings = next(p for p in PICTURE_LIST if p[0] == name)
     python = ", ".join(f"{k}={v!r}" for k, v in settings.items())
+    start = "c.cut(1250, 1300).plot" if name in PICTURE_DATA else "c.plot"
     body = {k: v for k, v in settings.items() if k in PLOT_ARGUMENTS}
     style = {k: v for k, v in settings.items() if k not in PLOT_ARGUMENTS}
     website = json.dumps({**body, "settings": style} if style else body, ensure_ascii=False)
-    return (f"![{caption}](plotting/{name})\n\n*{caption}*\n\nPython:\n```python\nc.plot({python})\n```\n"
+    return (f"![{caption}](plotting/{name})\n\n*{caption}*\n\nPython:\n```python\n{start}({python})\n```\n"
             f"Website (`/figure`), next to `\"data\"`:\n```json\n{website}\n```\n")
 
 
@@ -456,19 +487,129 @@ Special characters: write them directly (cm⁻¹, ν(C=C), I₀, δ), or as math
 text between dollar signs, e.g. `"$\\nu_{{as}}$(CH$_2$)"` for ν with "as" below
 and CH with a small 2.
 
+## Scale and extra axes
+
+{section(["x_log", "y_log"])}
+
+A second axis shows the same data in another unit. On top: the absolute
+wavelength of each Raman shift for your laser (`"wavelength"`), or the x
+values times a factor plus an offset (`"scale"`). On the right: the y values
+times a factor plus an offset. Their ticks and numbers follow the `top_...`
+and `right_...` tick settings (e.g. `top_tick_label_color`), their labels
+the `xlabel_...` and `ylabel_...` settings.
+
+{section(["top_axis", "top_axis_laser", "top_axis_scale", "top_axis_offset", "top_axis_label", "right_axis",
+          "right_axis_scale", "right_axis_offset", "right_axis_label"])}
+
+{picture("second_axes.png")}
+
+## Gaps where data was cut
+
+After `cut` (removing a range such as the silicon band), the line would be
+drawn straight across the gap. With `cut_marks` the line breaks there and
+// marks on the box show the gap (also on the top line when the box is closed).
+
+{section(["cut_marks", "cut_mark_size", "cut_mark_color", "cut_mark_width"])}
+
+{picture("cut_marks.png")}
+
+## Line names and scale bar
+
+Each spectrum's name can be written next to its line, with the legend, or
+instead of it (`legend=False`): the two are set apart. A scale bar shows the
+size of the y unit when the y numbers are hidden, as in stacked plots. When
+both are on the same side, the bar stands past the names.
+
+{section(["line_names", "line_name_position", "line_name_color", "line_name_alpha", "line_name_size",
+          "line_name_weight", "line_name_italic", "line_name_font", "line_name_pad"])}
+
+{section(["scale_bar", "scale_bar_label", "scale_bar_position", "scale_bar_color", "scale_bar_alpha",
+          "scale_bar_width", "scale_bar_label_size", "scale_bar_label_weight", "scale_bar_label_italic",
+          "scale_bar_label_font"])}
+
+{picture("names_scale_bar.png")}
+
+## Mean with a band (kind "mean")
+
+{section(["mean_band", "mean_band_color", "mean_band_alpha"])}
+
+{picture("mean_band.png")}
+
+## Image of many spectra (kind "image")
+
+{section(["color_limits", "colorbar", "colorbar_label", "colorbar_ticks_at", "colorbar_length",
+          "colorbar_fraction", "image_y"])}
+
+{picture("image.png")}
+
+## Notes and arrows
+
+Free text anywhere on the plot, an argument of `plot` (on the website at the
+top level of the body): `notes=[{{"text": "D band", "x": 1350, "y": 0.8}}]`.
+`x` and `y` are data values, or 0 to 1 of the box with `"coords": "axes"`.
+`"arrow": [x, y]` draws an arrow from the note to that point (data values).
+One note can change any of these for itself, with the names without
+`note_`, e.g. `"color": "red"`:
+
+{section(["note_color", "note_alpha", "note_size", "note_weight", "note_italic", "note_font", "note_rotation",
+          "note_box", "note_box_color", "note_fill", "note_fill_alpha", "note_arrow_color", "note_arrow_alpha",
+          "note_arrow_width", "note_arrow_style", "note_arrow_head"])}
+
+## Inset (a zoomed view)
+
+A small copy of the plot, zoomed on an x range, inside the box: an argument
+of `plot`, `inset=[1550, 1650]` or `inset={{"region": [1550, 1650],
+"position": "upper left", "scale": 0.35, "lines": false}}`. A legend at
+`"best"` keeps clear of the inset.
+
+{section(["inset_position", "inset_scale", "inset_lines", "inset_line_color", "inset_line_alpha",
+          "inset_line_width", "inset_line_style", "inset_tick_label_size", "inset_tick_count"])}
+
+{picture("notes_inset.png")}
+
+## Panels (several plots in one figure)
+
+`stk.panels` puts several plots in one figure, each with a letter. Every
+entry is a Spectrum or collection, or a dict with `"data"`, any plot argument
+(`"kind"`, `"title"`, `"peaks"` ...) and its own settings:
+
+```python
+stk.panels([c, {{"data": c, "kind": "stack", "peaks": 3}}, {{"data": c, "kind": "mean"}},
+            {{"data": c, "kind": "image"}}], layout=[2, 2], size=(12, 7), save="figure.png")
+```
+
+`layout` is `[rows, columns]` (default one column for up to 3 panels, else
+two columns); `share_x` / `share_y` give the panels one x (or y) range and
+write the numbers only on the outer panels; `title` goes over the whole
+figure; `"letter": "(z)"` (or `false`) in an entry replaces its letter. The
+figure is `size` times the layout, so each panel has the size of one plot.
+On the website: `{{"panels": [{{"data": ..., "kind": "stack", "settings": {{...}}}}, ...],
+"layout": [2, 2], "share_x": true}}` in place of `"data"`.
+
+{section(["panel_letters", "panel_letter_format", "panel_letter_case", "panel_letter_position",
+          "panel_letter_size", "panel_letter_weight", "panel_letter_color", "panel_letter_alpha",
+          "panel_letter_italic", "panel_letter_font", "panel_spacing"])}
+
+![Four panels: lines, stacked with peak labels, mean, and image.](plotting/panels.png)
+
+*Four panels: lines, stacked with peak labels, mean, and image.*
+
 ## Reference lines at zero
 
 {section(["zero_lines", "zero_line_style", "zero_line_width", "zero_line_color", "zero_line_alpha"])}
 
 ## Saving
 
-{section(["dpi", "format", "color_mode"])}
+{section(["tight", "dpi", "format", "color_mode"])}
+
+Fonts: a font that is not installed is replaced by a similar one. Python
+gives a warning; the website's answer has an `X-Warning` header naming it.
 """]
     missing = set(SETTINGS) - USED
     if missing:                                                      # every setting must appear somewhere
         raise SystemExit(f"Settings not placed in any section of the reference: {sorted(missing)}")
     DOC.write_text("".join(parts), encoding="utf-8")
-    print(f"Wrote {DOC.relative_to(ROOT)} ({len(SETTINGS)} settings) and {len(PICTURE_LIST)} pictures.")
+    print(f"Wrote {DOC.relative_to(ROOT)} ({len(SETTINGS)} settings) and {len(PICTURE_LIST) + 1} pictures.")
 
 
 if __name__ == "__main__":

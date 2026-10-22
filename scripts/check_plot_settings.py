@@ -41,7 +41,7 @@ SPIKED = SpectrumCollection(X, _spiky, names=["A", "B", "C"]).despike()
 # Arguments of plot itself (not style settings): peak labels, marks and a labelled range are always shown.
 PLOT_ARGUMENTS = dict(peaks=2, marks={1000: "M", 1400: "N"},
                       highlight=[{"range": [1150, 1250], "label": "H"}])
-PLOT_KEYS = ("peaks", "marks", "highlight", "emphasize")
+PLOT_KEYS = ("peaks", "marks", "highlight", "emphasize", "notes", "inset")
 
 # Everything visible, so each setting has something to act on.
 CONTEXT = dict(box="closed", tick_sides=["bottom", "top", "left", "right"],
@@ -50,7 +50,12 @@ CONTEXT = dict(box="closed", tick_sides=["bottom", "top", "left", "right"],
                marker_size=3, size=(14, 9), legend_location="upper right")
 
 # Settings checked on the saved file, not on the picture's pixels.
-FILE_CHECKS = {"dpi", "format", "color_mode"}
+FILE_CHECKS = {"dpi", "format", "color_mode", "tight"}
+
+# Settings that act on another kind of plot than lines.
+KIND_OF = {"mean_band": "mean", "mean_band_color": "mean", "mean_band_alpha": "mean", "cmap": "image",
+           "color_limits": "image", "colorbar": "image", "colorbar_label": "image", "colorbar_ticks_at": "image",
+           "colorbar_length": "image", "colorbar_fraction": "image", "image_y": "image"}
 
 
 def changed_value(name: str, current):
@@ -69,6 +74,14 @@ def changed_value(name: str, current):
         "peak_spectra": "all", "highlight_hatch": "//", "label_overlap": "keep",
         "x_ticks_at": [500, 1000, 1500], "y_ticks_at": [0, 0.5], "x_tick_count": 3, "y_tick_count": 2,
         "legend_hide": [1],
+        "top_axis": "wavelength", "top_axis_laser": 785, "top_axis_offset": 100, "top_axis_label": "Top label",
+        "right_axis": "scale", "right_axis_offset": 5, "right_axis_label": "Right label",
+        "line_name_position": "left", "scale_bar": 0.5, "scale_bar_label": "Bar", "scale_bar_position": "left",
+        "mean_band": "minmax", "color_limits": [0, 0.5], "colorbar_label": "Bar label",
+        "colorbar_ticks_at": [0, 0.5], "colorbar_length": 0.5, "colorbar_fraction": 0.3, "image_y": "name",
+        "note_arrow_head": "-|>", "inset_position": "lower left", "inset_scale": 0.6,
+        "panel_letter_format": "{}.", "panel_letter_case": "upper", "panel_letter_position": "inside",
+        "panel_spacing": 0.2,
     }
     base = name
     for prefix in SIDES + ("x", "y"):                       # top_tick_length -> tick_length
@@ -114,10 +127,20 @@ def changed_value(name: str, current):
 
 
 def picture(settings: dict, kind: str = "lines") -> np.ndarray:
-    """Draw, save as png in memory and return the pixels."""
+    """Draw, save as png in memory and return the pixels.
+
+    Two keys are not settings: "_cut" draws the data with a range cut out,
+    "_panels" draws two panels with stk.panels.
+    """
     settings = {**PLOT_ARGUMENTS, **settings}
+    cut, as_panels = settings.pop("_cut", False), settings.pop("_panels", False)
     data = SPIKED if settings["highlight"] == "spikes" else DATA
-    ax = stk.plot(data, kind=kind, **TEXT, **settings)
+    data = data.cut(1250, 1300) if cut else data
+    if as_panels:
+        arguments = {k: settings.pop(k) for k in list(settings) if k in PLOT_ARGUMENTS}
+        ax = stk.panels([{"data": data, **arguments, **TEXT}, data], **settings)[0]
+    else:
+        ax = stk.plot(data, kind=kind, **TEXT, **settings)
     buffer = io.BytesIO()
     ax.figure.savefig(buffer, format="png", dpi=50)
     plt.close("all")
@@ -172,6 +195,29 @@ def context_for(name: str) -> dict:
         ctx[f"{what}_box"] = True
         if name.endswith("_fill_alpha"):
             ctx[f"{what}_fill"] = "yellow"
+    if name.startswith("top_axis_"):
+        ctx["top_axis"] = "wavelength" if name in ("top_axis_laser", "top_axis_label") else "scale"
+    if name.startswith("right_axis_"):
+        ctx["right_axis"] = "scale"
+    if name.startswith("cut_mark"):
+        ctx["_cut"] = True
+        if name != "cut_marks":
+            ctx["cut_marks"] = True
+    if name.startswith("line_name"):
+        ctx["legend"] = False
+        if name != "line_names":
+            ctx["line_names"] = True
+    if name.startswith("scale_bar_"):
+        ctx["scale_bar"] = 0.5
+    if name.startswith("note_"):
+        ctx["notes"] = [{"text": "Note", "x": 700, "y": 0.6, "arrow": [1000, 0.9]}]
+        if name in ("note_box_color", "note_fill", "note_fill_alpha"):
+            ctx["note_box"] = True
+            ctx["note_box_color"] = ctx.get("note_box_color", "black")
+    if name.startswith("inset_"):
+        ctx["inset"] = [950, 1050]
+    if name.startswith("panel_"):
+        ctx["_panels"] = True
     if name == "label_overlap":
         ctx["marks"] = {1000: "AAAA", 1004: "BBBB"}            # two labels on top of each other
     return ctx
@@ -225,6 +271,11 @@ def check_files() -> list[str]:
         path = stk.export(ax, Path(folder) / "g.tiff", style={"preset": "clean", "color_mode": "cmyk"})
         if Image.open(path).mode != "CMYK":
             problems.append("color_mode: cmyk tiff is not CMYK")
+        sizes = [Image.open(stk.export(ax, Path(folder) / f"t{tight}.png",
+                                       style={"preset": "clean", "tight": tight, "dpi": 50})).size
+                 for tight in (True, False)]
+        if sizes[0] == sizes[1]:
+            problems.append("tight: the saved picture has the same size with and without tight")
     plt.close("all")
     return problems
 
@@ -297,9 +348,10 @@ def main() -> int:
         if name in FILE_CHECKS:
             continue
         ctx = context_for(name)
-        current = ctx.get(name, get_style("clean", **{k: v for k, v in ctx.items() if k not in PLOT_KEYS})[name])
+        current = ctx.get(name, get_style("clean", **{k: v for k, v in ctx.items()
+                                                      if k not in PLOT_KEYS and not k.startswith("_")})[name])
         value = changed_value(name, current)
-        kind = "image" if name == "cmap" else "lines"
+        kind = KIND_OF.get(name, "lines")
         try:
             before = picture(ctx, kind)
             after = picture({**ctx, name: value}, kind)
@@ -332,7 +384,10 @@ def main() -> int:
              "legend_location": "outside left", "legend_hide": 1, "mark_span": "half", "mark_style": "dotted",
              "peak_label_format": "{:.0q}", "peak_spectra": "some", "highlight_hatch": "#",
              "peak_label_position": "middle", "highlight_label_box": "yes", "peak_sensitivity": 2,
-             "label_overlap": "hide", "peak_label_color": "notacolour"}
+             "label_overlap": "hide", "peak_label_color": "notacolour", "top_axis": "left", "x_log": "yes",
+             "top_axis_laser": 0, "inset_scale": 2, "color_limits": 5, "colorbar_length": 0,
+             "panel_letter_format": "x", "panel_spacing": 0.9, "mean_band": "var", "scale_bar": -1,
+             "image_y": "letter", "note_arrow_head": "=>", "line_name_color": "nocolour"}
     for name, value in wrong.items():
         try:
             get_style("clean", **{name: value})

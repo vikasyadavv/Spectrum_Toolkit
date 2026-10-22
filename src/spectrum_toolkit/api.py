@@ -19,6 +19,8 @@ POST /process-file  upload a file plus a recipe (form field "recipe", JSON
 POST /figure        JSON {"data": ..., "kind": "lines", "style": "publication",
                     "settings": {...}, "format": "tiff", "dpi": 600, ...}:
                     returns the figure as a file (png, tiff, jpg, pdf, svg, eps).
+                    With "panels": [...] instead of "data", several plots in
+                    one figure. A missing font is named in the "X-Warning" header.
 
 Data in answers always has the same fields, in this order (one row of "Y"
 per spectrum; sizes first, like MATLAB's size())::
@@ -83,7 +85,9 @@ _FIGURE_LOCK = threading.Lock()
 app = FastAPI(title="Spectrum Toolkit", version=__version__,
               description="Load, process and plot spectroscopic data. See the module description of "
                           "spectrum_toolkit.api for the data format.")
-app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"])
+# expose_headers: lets the website's JavaScript read the file name and the font warning
+app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"],
+                   expose_headers=["Content-Disposition", "X-Warning"])
 
 
 @app.exception_handler(ValueError)
@@ -350,34 +354,80 @@ def _color_mode(body: dict) -> str:
     return str(mode).lower()
 
 
+# Plot arguments a request may give next to "data" (the rest goes in "settings").
+_PLOT_EXTRAS = {"region", "offset", "labels", "highlight", "emphasize", "peaks", "marks", "title", "xlabel",
+                "ylabel", "invert_x", "notes", "inset"}
+
+
+def _plot_extras(body: dict) -> dict:
+    """The plot arguments of a request (or of one panel), with marks keys back to numbers."""
+    extra = {k: v for k, v in body.items() if k in _PLOT_EXTRAS}
+    if isinstance(extra.get("marks"), dict):                    # JSON keys are text: back to numbers
+        extra["marks"] = {float(k): v for k, v in extra["marks"].items()}
+    return extra
+
+
+def _panel_items(body: dict) -> list:
+    """The "panels" of a request as stk.panels entries: data, plot arguments, letter and own settings."""
+    items = body.get("panels")
+    if not isinstance(items, list) or not items:
+        raise ValueError('"panels" must be a list of panels, each {"data": ..., "kind": ..., "settings": {...}}.')
+    entries = []
+    for i, panel in enumerate(items):
+        if not isinstance(panel, dict) or "data" not in panel:
+            raise ValueError(f'Panel {i + 1} must be a dict with "data".')
+        entry = {"data": _single_or_all(from_json(panel["data"])), "kind": panel.get("kind", "lines"),
+                 **_plot_extras(panel), **(panel.get("settings") or {})}
+        if "letter" in panel:
+            entry["letter"] = panel["letter"]
+        entries.append(entry)
+    return entries
+
+
 @app.post("/figure")
 def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
-    """Draw data and return the figure file."""
+    """Draw data (or several panels) and return the figure file.
+
+    With "panels": [{"data": ..., "kind": ..., "settings": {...}, ...}, ...]
+    the figure has one panel per entry; "layout": [rows, columns],
+    "share_x", "share_y" and "title" (over the whole figure) are optional.
+    When a font asked for is not installed on the server, the answer has an
+    "X-Warning" header saying which fonts were replaced.
+    """
     import matplotlib
     matplotlib.use("Agg")                                       # no screen on a server
     import matplotlib.pyplot as plt
 
-    from .plot import plot
-    from .style import export
+    from .plot import panels, plot
+    from .style import export, get_style, missing_fonts
 
-    data = _single_or_all(from_json(body.get("data")))
     fmt = str(body.get("format", "png")).lower()
     if fmt not in _TYPES:
         raise ValueError(f"Unknown format {fmt!r}. Choose one of: {', '.join(_TYPES)}.")
-    allowed = {"region", "offset", "labels", "highlight", "emphasize", "peaks", "marks", "title", "xlabel", "ylabel",
-               "invert_x"}
-    extra = {k: v for k, v in body.items() if k in allowed}
-    if isinstance(extra.get("marks"), dict):                    # JSON keys are text: back to numbers
-        extra["marks"] = {float(k): v for k, v in extra["marks"].items()}
+    settings = body.get("settings") or {}
     with _FIGURE_LOCK, tempfile.TemporaryDirectory() as folder:
         try:
-            ax = plot(data, kind=body.get("kind", "lines"), style=body.get("style"),
-                      **(body.get("settings") or {}), **extra)
+            if "panels" in body:
+                entries = _panel_items(body)
+                axes = panels(entries, body.get("layout"), share_x=bool(body.get("share_x", False)),
+                              share_y=bool(body.get("share_y", False)), title=body.get("title"),
+                              style=body.get("style"), **settings)
+                ax = axes[0]
+                own = [p.get("settings") or {} for p in body["panels"]]
+            else:
+                data = _single_or_all(from_json(body.get("data")))
+                ax = plot(data, kind=body.get("kind", "lines"), style=body.get("style"), **settings,
+                          **_plot_extras(body))
+                own = [{}]
             path = export(ax, Path(folder) / "figure", format=fmt, dpi=int(body.get("dpi", 300)),
                           color=_color_mode(body), transparent=bool(body.get("transparent", False)))
             content = path.read_bytes()
         finally:
             plt.close("all")
+    missing = sorted({f for extra in own for f in missing_fonts(get_style(body.get("style"), **{**settings, **extra}))})
     name = re.sub(r"[^A-Za-z0-9._-]", "_", str(body.get("name", "figure")))[:80] or "figure"
-    return Response(content, media_type=_TYPES[fmt],
-                    headers={"Content-Disposition": f'attachment; filename="{name}.{fmt}"'})
+    headers = {"Content-Disposition": f'attachment; filename="{name}.{fmt}"'}
+    if missing:                                                  # headers carry plain text only
+        text = f"Font(s) not installed on the server, another font was used: {', '.join(missing)}"
+        headers["X-Warning"] = text.encode("ascii", "replace").decode()
+    return Response(content, media_type=_TYPES[fmt], headers=headers)

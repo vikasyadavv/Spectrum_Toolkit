@@ -3,7 +3,7 @@
 Everything a figure can show and every setting that changes how it looks.
 This file is written by `scripts/make_plotting_docs.py` from the settings in
 `src/spectrum_toolkit/style.py`, so it always lists every setting
-(299 today). Edit the script, not this file.
+(380 today). Edit the script, not this file.
 
 ## How to use settings
 
@@ -669,6 +669,265 @@ Special characters: write them directly (cm⁻¹, ν(C=C), I₀, δ), or as math
 text between dollar signs, e.g. `"$\nu_{as}$(CH$_2$)"` for ν with "as" below
 and CH with a small 2.
 
+## Scale and extra axes
+
+| Setting | Default | What it does |
+|---|---|---|
+| `x_log` | false | logarithmic x scale: true or false |
+| `y_log` | false | logarithmic y scale: true or false (values of 0 and below are not drawn) |
+
+A second axis shows the same data in another unit. On top: the absolute
+wavelength of each Raman shift for your laser (`"wavelength"`), or the x
+values times a factor plus an offset (`"scale"`). On the right: the y values
+times a factor plus an offset. Their ticks and numbers follow the `top_...`
+and `right_...` tick settings (e.g. `top_tick_label_color`), their labels
+the `xlabel_...` and `ylabel_...` settings.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `top_axis` | "none" | "none", "wavelength" (absolute wavelength in nm for the laser top_axis_laser) or "scale" (x times top_axis_scale plus top_axis_offset) |
+| `top_axis_laser` | 532.0 | laser wavelength in nm, for top_axis "wavelength" |
+| `top_axis_scale` | 1.0 | factor for top_axis "scale" |
+| `top_axis_offset` | 0.0 | added after the factor, for top_axis "scale" |
+| `top_axis_label` | *(not set)* | top axis label; None = "Wavelength (nm)", or the x label for "scale" |
+| `right_axis` | "none" | "none" or "scale" (y times right_axis_scale plus right_axis_offset) |
+| `right_axis_scale` | 1.0 | factor for right_axis "scale", e.g. 0.1 for counts per second at 10 s exposure |
+| `right_axis_offset` | 0.0 | added after the factor, for right_axis "scale" |
+| `right_axis_label` | *(not set)* | right axis label; None = the y label |
+
+![A second x axis on top (absolute wavelength for a 532 nm laser) and a second y axis on the right (counts per second at 10 s exposure).](plotting/second_axes.png)
+
+*A second x axis on top (absolute wavelength for a 532 nm laser) and a second y axis on the right (counts per second at 10 s exposure).*
+
+Python:
+```python
+c.plot(top_axis='wavelength', top_axis_laser=532, right_axis='scale', right_axis_scale=0.1, right_axis_label='Counts per second', box='closed')
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"settings": {"top_axis": "wavelength", "top_axis_laser": 532, "right_axis": "scale", "right_axis_scale": 0.1, "right_axis_label": "Counts per second", "box": "closed"}}
+```
+
+
+## Gaps where data was cut
+
+After `cut` (removing a range such as the silicon band), the line would be
+drawn straight across the gap. With `cut_marks` the line breaks there and
+// marks on the box show the gap (also on the top line when the box is closed).
+
+| Setting | Default | What it does |
+|---|---|---|
+| `cut_marks` | false | break the line where cut removed points, and mark the gap with // on the box: true or false |
+| `cut_mark_size` | 8.0 | size of the // marks in points |
+| `cut_mark_color` | *(not set)* | colour of the // marks; None = box_color |
+| `cut_mark_width` | *(not set)* | line width of the // marks in points; None = box_width |
+
+![The range 1250 to 1300 removed with cut: the lines break there and // marks show the gap on the box.](plotting/cut_marks.png)
+
+*The range 1250 to 1300 removed with cut: the lines break there and // marks show the gap on the box.*
+
+Python:
+```python
+c.cut(1250, 1300).plot(cut_marks=True, box='closed')
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"settings": {"cut_marks": true, "box": "closed"}}
+```
+
+
+## Line names and scale bar
+
+Each spectrum's name can be written next to its line, with the legend, or
+instead of it (`legend=False`): the two are set apart. A scale bar shows the
+size of the y unit when the y numbers are hidden, as in stacked plots. When
+both are on the same side, the bar stands past the names.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `line_names` | false | write each spectrum's name next to its line: true or false (the legend is set apart, by legend) |
+| `line_name_position` | "right" | "right" or "left" end of the line |
+| `line_name_color` | "line" | name colour; "line" = the colour of its spectrum |
+| `line_name_alpha` | 1.0 | name transparency, 0 to 1 |
+| `line_name_size` | *(not set)* | name size in points; None = legend_size |
+| `line_name_weight` | *(not set)* | "normal" or "bold"; None = font_weight |
+| `line_name_italic` | false | names in italics: true or false |
+| `line_name_font` | *(not set)* | name font; None = font |
+| `line_name_pad` | 3.0 | distance between the end of the line and its name, in points |
+
+| Setting | Default | What it does |
+|---|---|---|
+| `scale_bar` | *(not set)* | height of a vertical bar in y units, e.g. 1000; None = no bar |
+| `scale_bar_label` | *(not set)* | text next to the bar; None = the height and the y unit, e.g. "1000 counts" |
+| `scale_bar_position` | "right" | "right" or "left" of the box |
+| `scale_bar_color` | "black" | bar and text colour |
+| `scale_bar_alpha` | 1.0 | bar and text transparency, 0 to 1 |
+| `scale_bar_width` | 2.0 | bar line width in points |
+| `scale_bar_label_size` | *(not set)* | text size in points; None = 0.75 x font_size |
+| `scale_bar_label_weight` | *(not set)* | "normal" or "bold"; None = font_weight |
+| `scale_bar_label_italic` | false | text in italics: true or false |
+| `scale_bar_label_font` | *(not set)* | text font; None = font |
+
+![Stacked spectra with each name next to its line (no legend) and a scale bar showing the size of 0.5 intensity units.](plotting/names_scale_bar.png)
+
+*Stacked spectra with each name next to its line (no legend) and a scale bar showing the size of 0.5 intensity units.*
+
+Python:
+```python
+c.plot(kind='stack', line_names=True, legend=False, scale_bar=0.5)
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"kind": "stack", "settings": {"line_names": true, "legend": false, "scale_bar": 0.5}}
+```
+
+
+## Mean with a band (kind "mean")
+
+| Setting | Default | What it does |
+|---|---|---|
+| `mean_band` | "std" | "std" (±1 standard deviation), "2std", "minmax" (lowest to highest), "ci95" (95 % confidence of the mean) or "none" |
+| `mean_band_color` | *(not set)* | band colour; None = line colour |
+| `mean_band_alpha` | 0.25 | band transparency, 0 to 1 |
+
+![The mean of the three spectra with a band from the lowest to the highest value.](plotting/mean_band.png)
+
+*The mean of the three spectra with a band from the lowest to the highest value.*
+
+Python:
+```python
+c.plot(kind='mean', mean_band='minmax', mean_band_alpha=0.3)
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"kind": "mean", "settings": {"mean_band": "minmax", "mean_band_alpha": 0.3}}
+```
+
+
+## Image of many spectra (kind "image")
+
+| Setting | Default | What it does |
+|---|---|---|
+| `color_limits` | *(not set)* | intensity of the lowest and highest colour [lo, hi]; either may be None (automatic: the 1st and 99th percentile) |
+| `colorbar` | true | colour bar next to the image: true or false |
+| `colorbar_label` | *(not set)* | colour bar label; None = the y unit |
+| `colorbar_ticks_at` | *(not set)* | colour bar tick positions, e.g. [0, 500, 1000]; None = automatic |
+| `colorbar_length` | 1.0 | colour bar length relative to the plot height, 0 to 1 |
+| `colorbar_fraction` | 0.15 | share of the plot width given to the colour bar (with its gap) |
+| `image_y` | "number" | "number" (spectrum numbers) or "name" (spectrum names) on the y axis |
+
+![The spectra as an image, with their names on the y axis, fixed colour limits and chosen colour bar ticks.](plotting/image.png)
+
+*The spectra as an image, with their names on the y axis, fixed colour limits and chosen colour bar ticks.*
+
+Python:
+```python
+c.plot(kind='image', image_y='name', color_limits=[0, 0.8], colorbar_ticks_at=[0, 0.4, 0.8], colorbar_label='Intensity')
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"kind": "image", "settings": {"image_y": "name", "color_limits": [0, 0.8], "colorbar_ticks_at": [0, 0.4, 0.8], "colorbar_label": "Intensity"}}
+```
+
+
+## Notes and arrows
+
+Free text anywhere on the plot, an argument of `plot` (on the website at the
+top level of the body): `notes=[{"text": "D band", "x": 1350, "y": 0.8}]`.
+`x` and `y` are data values, or 0 to 1 of the box with `"coords": "axes"`.
+`"arrow": [x, y]` draws an arrow from the note to that point (data values).
+One note can change any of these for itself, with the names without
+`note_`, e.g. `"color": "red"`:
+
+| Setting | Default | What it does |
+|---|---|---|
+| `note_color` | "black" | note text colour |
+| `note_alpha` | 1.0 | note text transparency, 0 to 1 |
+| `note_size` | *(not set)* | note text size in points; None = font_size |
+| `note_weight` | *(not set)* | "normal" or "bold"; None = font_weight |
+| `note_italic` | false | note in italics: true or false |
+| `note_font` | *(not set)* | note font; None = font |
+| `note_rotation` | 0 | note rotation in degrees |
+| `note_box` | false | a box behind the note: true or false |
+| `note_box_color` | "none" | note box line colour; "none" = no line |
+| `note_fill` | "white" | colour inside the note box |
+| `note_fill_alpha` | 0.8 | note box fill transparency, 0 to 1 |
+| `note_arrow_color` | "black" | arrow colour |
+| `note_arrow_alpha` | 1.0 | arrow transparency, 0 to 1 |
+| `note_arrow_width` | 1.0 | arrow line width in points |
+| `note_arrow_style` | "-" | arrow line type: "-", "--", ":" or "-." |
+| `note_arrow_head` | "->" | "->" open head, "-/>" filled head, or "-" no head |
+
+## Inset (a zoomed view)
+
+A small copy of the plot, zoomed on an x range, inside the box: an argument
+of `plot`, `inset=[1550, 1650]` or `inset={"region": [1550, 1650],
+"position": "upper left", "scale": 0.35, "lines": false}`. A legend at
+`"best"` keeps clear of the inset.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `inset_position` | "upper right" | "upper left", "upper right", "lower left" or "lower right" |
+| `inset_scale` | 0.4 | inset size relative to the plot, 0 to 1 |
+| `inset_lines` | true | frame the zoomed range in the plot and join it to the inset: true or false |
+| `inset_line_color` | "0.4" | frame and joining line colour |
+| `inset_line_alpha` | 1.0 | frame and joining line transparency, 0 to 1 |
+| `inset_line_width` | 0.8 | frame and joining line width in points |
+| `inset_line_style` | "-" | frame and joining line type: "-", "--", ":" or "-." |
+| `inset_tick_label_size` | *(not set)* | inset tick label size in points; None = 0.8 x tick_label_size |
+| `inset_tick_count` | 3 | about how many numbered ticks on each inset axis; None = automatic |
+
+![A note in a box with an arrow to a band, a bold note placed by its share of the box, and an inset zoomed on 1550 to 1650 at the upper left.](plotting/notes_inset.png)
+
+*A note in a box with an arrow to a band, a bold note placed by its share of the box, and an inset zoomed on 1550 to 1650 at the upper left.*
+
+Python:
+```python
+c.plot(notes=[{'text': 'G band', 'x': 1350, 'y': 0.9, 'arrow': [1585, 0.78], 'color': 'red', 'box': True}, {'text': 'Sample set 1', 'x': 0.5, 'y': 0.4, 'coords': 'axes', 'weight': 'bold'}], inset={'region': [1550, 1650], 'position': 'upper left'}, inset_scale=0.35)
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"notes": [{"text": "G band", "x": 1350, "y": 0.9, "arrow": [1585, 0.78], "color": "red", "box": true}, {"text": "Sample set 1", "x": 0.5, "y": 0.4, "coords": "axes", "weight": "bold"}], "inset": {"region": [1550, 1650], "position": "upper left"}, "settings": {"inset_scale": 0.35}}
+```
+
+
+## Panels (several plots in one figure)
+
+`stk.panels` puts several plots in one figure, each with a letter. Every
+entry is a Spectrum or collection, or a dict with `"data"`, any plot argument
+(`"kind"`, `"title"`, `"peaks"` ...) and its own settings:
+
+```python
+stk.panels([c, {"data": c, "kind": "stack", "peaks": 3}, {"data": c, "kind": "mean"},
+            {"data": c, "kind": "image"}], layout=[2, 2], size=(12, 7), save="figure.png")
+```
+
+`layout` is `[rows, columns]` (default one column for up to 3 panels, else
+two columns); `share_x` / `share_y` give the panels one x (or y) range and
+write the numbers only on the outer panels; `title` goes over the whole
+figure; `"letter": "(z)"` (or `false`) in an entry replaces its letter. The
+figure is `size` times the layout, so each panel has the size of one plot.
+On the website: `{"panels": [{"data": ..., "kind": "stack", "settings": {...}}, ...],
+"layout": [2, 2], "share_x": true}` in place of `"data"`.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `panel_letters` | true | a letter on each panel, (a), (b) ...: true or false |
+| `panel_letter_format` | "({})" | how the letter is written: "({})" -> (a), "{})" -> a), "{}" -> a |
+| `panel_letter_case` | "lower" | "lower" (a, b, c) or "upper" (A, B, C) |
+| `panel_letter_position` | "outside" | "outside" (above the top left corner of the box) or "inside" (in the top left corner) |
+| `panel_letter_size` | *(not set)* | letter size in points; None = 1.2 x font_size |
+| `panel_letter_weight` | "bold" | "normal" or "bold" |
+| `panel_letter_color` | "black" | letter colour |
+| `panel_letter_alpha` | 1.0 | letter transparency, 0 to 1 |
+| `panel_letter_italic` | false | letters in italics: true or false |
+| `panel_letter_font` | *(not set)* | letter font; None = font |
+| `panel_spacing` | 0.02 | extra space between panels, as a fraction of the figure (0 = only the room their labels need) |
+
+![Four panels: lines, stacked with peak labels, mean, and image.](plotting/panels.png)
+
+*Four panels: lines, stacked with peak labels, mean, and image.*
+
 ## Reference lines at zero
 
 | Setting | Default | What it does |
@@ -683,6 +942,10 @@ and CH with a small 2.
 
 | Setting | Default | What it does |
 |---|---|---|
+| `tight` | true | cut the white space around the figure when saving: true or false (false keeps the exact figure size) |
 | `dpi` | 300 | dots per inch for png, tiff and jpg |
 | `format` | "png" | file type when the name has no extension: png, tiff, jpg, pdf, svg, eps |
 | `color_mode` | "rgb" | "rgb" or "cmyk" (cmyk only for tiff and jpg) |
+
+Fonts: a font that is not installed is replaced by a similar one. Python
+gives a warning; the website's answer has an `X-Warning` header naming it.
