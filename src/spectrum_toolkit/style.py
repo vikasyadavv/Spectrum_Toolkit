@@ -102,6 +102,12 @@ SETTINGS: dict[str, tuple[Any, str]] = {
     "size": ("screen", 'figure size: a name in SIZES or (width, height) in "units"'),
     "units": ("cm", '"cm" or "in" for size'),
     "aspect": (None, 'plot area shape: None (fills the figure), "square", or height/width e.g. 0.75'),
+    # axis limits: fixed ends, or automatic with a margin around the data
+    "x_range": (None, "x axis limits [lo, hi]; either may be None (automatic); the direction follows invert_x"),
+    "y_range": (None, "y axis limits [lo, hi]; either may be None (automatic), e.g. [0, None] to start at 0"),
+    "x_margin": (0.05, "automatic white space left and right of the data, as a fraction of its width "
+                       "(0 = the data touches the box)"),
+    "y_margin": (0.05, "automatic white space below and above the data, as a fraction of its height"),
     # text: the base for every text in the figure
     "font": ("sans-serif", 'font name for all text, e.g. "Arial", "Times New Roman"; falls back if not installed'),
     "font_size": (10, "base text size in points (tick labels use it unless tick_label_size is set)"),
@@ -567,6 +573,14 @@ def _check_one(name: str, value) -> None:
         raise ValueError(f"panel_spacing must be from 0 to 0.5 (a fraction of the figure); got {value!r}.")
     if name in ("colorbar_length", "inset_scale", "colorbar_fraction") and not 0 < value <= 1:
         raise ValueError(f"{name} must be more than 0 and at most 1; got {value!r}.")
+    if name in ("x_range", "y_range") and not (isinstance(value, (list, tuple)) and len(value) == 2 and all(
+            v is None or (isinstance(v, (int, float)) and not isinstance(v, bool)) for v in value)):
+        raise ValueError(f"{name} must be [lo, hi], each a number or None; got {value!r}.")
+    if name in ("x_range", "y_range") and None not in value and value[0] == value[1]:
+        raise ValueError(f"{name} needs two different numbers; got {value!r}.")
+    if name in ("x_margin", "y_margin") and (not isinstance(value, (int, float)) or isinstance(value, bool)
+                                             or not 0 <= value <= 1):
+        raise ValueError(f"{name} must be a number from 0 to 1, e.g. 0.05; got {value!r}.")
     if name == "color_limits" and not (isinstance(value, (list, tuple)) and len(value) == 2 and all(
             v is None or (isinstance(v, (int, float)) and not isinstance(v, bool)) for v in value)):
         raise ValueError(f"color_limits must be [lo, hi], each a number or None; got {value!r}.")
@@ -891,6 +905,8 @@ def rc_settings(look: dict) -> dict[str, Any]:
     first = line_settings(look, 0, "black")                      # lines drawn by compare and scatter
     rc = {
         "figure.figsize": _size_inches(look),
+        "axes.xmargin": look["x_margin"],
+        "axes.ymargin": look["y_margin"],
         "font.family": font,
         "font.size": look["font_size"],
         "font.weight": look["font_weight"],

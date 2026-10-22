@@ -3,7 +3,7 @@
 Everything a figure can show and every setting that changes how it looks.
 This file is written by `scripts/make_plotting_docs.py` from the settings in
 `src/spectrum_toolkit/style.py`, so it always lists every setting
-(380 today). Edit the script, not this file.
+(384 today). Edit the script, not this file.
 
 ## How to use settings
 
@@ -84,6 +84,38 @@ CMYK file use `color_mode="cmyk"` with tiff or jpg (see **Saving**).
 | `size` | "screen" | figure size: a name in SIZES or (width, height) in "units" |
 | `units` | "cm" | "cm" or "in" for size |
 | `aspect` | *(not set)* | plot area shape: None (fills the figure), "square", or height/width e.g. 0.75 |
+
+## Axis limits
+
+`x_range` and `y_range` fix the ends of an axis; `null` (None) on one side
+leaves that end automatic, e.g. `"y_range": [0, null]` starts at zero. Use
+them to give several figures the same scale, or to cut off one huge band so
+the small ones show. The order of the two numbers does not matter, and
+`invert_x` still decides the direction. `region` (a plot argument) picks an
+x part and fits y to the data inside it; `y_range`, when set, wins over that
+fit. A band cut off by `y_range` keeps its peak label, moved down to the top
+of the box. The margins set the white space where an end is automatic.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `x_range` | *(not set)* | x axis limits [lo, hi]; either may be None (automatic); the direction follows invert_x |
+| `y_range` | *(not set)* | y axis limits [lo, hi]; either may be None (automatic), e.g. [0, None] to start at 0 |
+| `x_margin` | 0.05 | automatic white space left and right of the data, as a fraction of its width (0 = the data touches the box) |
+| `y_margin` | 0.05 | automatic white space below and above the data, as a fraction of its height |
+
+![y_range [0, 0.5] cuts off the tall bands so the small ones show; their peak labels stay at the top of the box. x_margin 0: the spectra touch the box left and right.](plotting/axis_limits.png)
+
+*y_range [0, 0.5] cuts off the tall bands so the small ones show; their peak labels stay at the top of the box. x_margin 0: the spectra touch the box left and right.*
+
+Python:
+```python
+c.plot(y_range=[0, 0.5], x_margin=0, peaks=4)
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"peaks": 4, "settings": {"y_range": [0, 0.5], "x_margin": 0}}
+```
+
 
 ## Text: the base for all text
 

@@ -142,6 +142,8 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] M9 panels, in place of `"data"`: `"panels": [{"data": <data>, "kind": "stack"}, {"data": <data>, "kind": "mean", "settings": {"line_width": 2}}], "layout": [1, 2], "share_y": true, "title": "Both",`
 - [ ] M10 `"settings": {"font": "Comic Sans MS"},` → the figure comes back, and the answer has an `X-Warning` header naming the font
 - [ ] M11 `"settings": {"tight": false},` → the file keeps the exact figure size (white space kept)
+- [ ] M12 `"settings": {"y_range": [0, 0.3]}, "peaks": 4,` (tall bands cut off, their labels at the top of the box)
+- [ ] M13 `"settings": {"y_range": [0, null], "x_margin": 0},` (starts at zero; spectra touch the box left and right)
 
 ## Not reachable from the page yet
 

@@ -363,3 +363,23 @@ def test_panels_save(tmp_path):
     c = _bands()
     stk.panels([c, c], save=str(tmp_path / "two.png"))
     assert (tmp_path / "two.png").exists()
+
+
+def test_axis_ranges_and_margins():
+    c = _bands()
+    ax = c.plot(y_range=[0, 1], peaks=2)
+    assert ax.get_ylim() == (0, 1)
+    assert all(t.xy[1] <= 1 for t in ax.texts)                          # labels of cut-off bands at the top
+    ax = c.plot(x_range=[1500, None], invert_x=True)                     # order does not matter, direction kept
+    left, right = ax.get_xlim()
+    assert left > right and right == 1500
+    ax = c.plot(x_margin=0, y_margin=0)
+    assert ax.get_xlim() == (400, 1800)
+    ax = c.plot(kind="image", y_range=[0.5, 2.5])
+    assert ax.get_ylim() == (0.5, 2.5)
+    ax = stk.compare(c, c.normalize(), 0, x_range=[900, 1100], y_range=[0, None])
+    assert ax.get_xlim() == (900, 1100) and ax.get_ylim()[0] == 0
+    assert ax.figure.axes[1].get_xlim() == (900, 1100)                   # the lower panel follows
+    for bad in ({"y_range": [1, 1]}, {"x_range": 5}, {"y_margin": 2}):
+        with pytest.raises(ValueError):
+            c.plot(**bad)

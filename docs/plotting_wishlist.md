@@ -3,9 +3,9 @@
 **Status:** agreed 2026-10-21 (naming rule yes; full per-side customisation for everything;
 MATLAB codes yes; order as suggested; section 7 discussed later, line by line).
 Built: **4 (box, ticks)**, **6 (labels, title, legend)**, **1 (spectral lines)** and **2 + 3 (marks, peak
-labels, highlights, text on the plot)** and **7, items 2 to 14** (log scales, second axes, cut marks, line
-names, scale bar, mean band, image options, notes, inset, panels, tight, font warning), see
-`docs/plotting.md`. Waiting: section 7 item 1 (approval) and items 15 and 16 (to discuss).
+labels, highlights, text on the plot)** and **7, items 1 to 14** (axis limits, log scales, second axes, cut
+marks, line names, scale bar, mean band, image options, notes, inset, panels, tight, font warning), see
+`docs/plotting.md`. To discuss: more advanced panels (12), items 15 and 16.
 
 This list is **for discussion only**. No code has changed. Each item says:
 - what the code **already does** (with the setting name, so you can try it today);

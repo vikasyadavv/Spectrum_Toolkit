@@ -179,17 +179,43 @@ def _shade(ax, ranges, look, spikes: bool = True):
                    hatchcolor=to_rgba(edge if edge is not None else own("color")) if hatch else None)
 
 
-def _zoom(ax, region, lines):
-    """Set x limits to region and fit the y limits to the data inside it."""
+def _zoom(ax, region, lines, margin: float = 0.05):
+    """Set x limits to region and fit the y limits to the data inside it (margin: share of its height)."""
     lo, hi = sorted(region)
     inside = [y[(x >= lo) & (x <= hi)] for x, y in lines]
+    inside = [v[np.isfinite(v)] for v in inside]
     inside = [v for v in inside if v.size]
     left, right = ax.get_xlim()
     ax.set_xlim((hi, lo) if left > right else (lo, hi))         # keep the direction (inverted or not)
     if inside:
         a, b = min(v.min() for v in inside), max(v.max() for v in inside)
-        pad = 0.05 * (b - a or 1)
+        pad = margin * (b - a or 1)
         ax.set_ylim(a - pad, b + pad)
+
+
+def _ranges(ax, look) -> None:
+    """Fixed axis limits (x_range, y_range); a None end stays automatic.
+
+    Peak labels of bands cut off by y_range are kept: they move down to the
+    top of the box.
+    """
+    if look is None:
+        return
+    for name, get, put in (("x_range", ax.get_xlim, ax.set_xlim), ("y_range", ax.get_ylim, ax.set_ylim)):
+        wanted = look[name]
+        if wanted is None:
+            continue
+        now = get()
+        low, high = sorted(now)
+        lo = low if wanted[0] is None else wanted[0]
+        hi = high if wanted[1] is None else wanted[1]
+        lo, hi = sorted((lo, hi))
+        put((hi, lo) if now[0] > now[1] else (lo, hi))           # keep the direction (inverted or not)
+    if look["y_range"] is not None:
+        top = max(ax.get_ylim())
+        for t in getattr(ax, "_spectrum_texts", []):
+            if t.xycoords == "data" and t.xy[1] > top:
+                t.xy = (t.xy[0], top)
 
 
 def _height_at(spectra, lo, hi=None):
@@ -877,6 +903,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
             if region:
                 ax.set_xlim(*sorted(region))
             _labels(ax, data[0], look, xlabel, False, title, invert_x)
+            _ranges(ax, look)
             _notes(ax, notes, look)
             finish_axes(ax, look)
             _save(ax, save, look)
@@ -949,7 +976,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
         elif highlight:
             _shade(ax, highlight, look, spikes=False)
         if region:
-            _zoom(ax, region, drawn)
+            _zoom(ax, region, drawn, (look or DEFAULTS)["y_margin"])
         if peaks is not None:
             _label_peaks(ax, spectra, peaks, look, region)
         if marks:
@@ -958,6 +985,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
             _highlight_labels(ax, highlight, look, spectra)
         _labels(ax, data[0], look, xlabel, ylabel if kind != "stack" else (ylabel or "Intensity (shifted)"),
                 title, invert_x)
+        _ranges(ax, look)                                            # after invert_x: the direction is kept
         if look:
             names = _line_names(ax, spectra, labels, look) if look["line_names"] else []
             if look["scale_bar"]:
@@ -1192,13 +1220,14 @@ def compare(before: Data, after: Data, index: int | str = 0, *, region: tuple[fl
             low.axhline(0, color="0.6", lw=0.6, marker="None")
             low.set_ylabel("removed")
             _shade(low, spikes, look)
+        margin = (look or DEFAULTS)["y_margin"]
         if region:
-            _zoom(ax, region, drawn)
+            _zoom(ax, region, drawn, margin)
             if removed:
                 m = (b.x >= min(region)) & (b.x <= max(region))
                 d = (b.y - a.y)[m]
                 if d.size:
-                    pad = 0.05 * (np.ptp(d) or 1)
+                    pad = margin * (np.ptp(d) or 1)
                     low.set_ylim(d.min() - pad, d.max() + pad)
         title = title if title is not None else (_describe(step) if step else "")
         title = f"{a.name}: {title}" if a.name and title else (a.name or title)
@@ -1209,6 +1238,7 @@ def compare(before: Data, after: Data, index: int | str = 0, *, region: tuple[fl
         bottom.set_xlabel(xlabel if xlabel is not None else (b.x_unit or "x"))
         if invert_x and not ax.xaxis_inverted():
             ax.invert_xaxis()
+        _ranges(ax, look)                                               # y_range: the top panel; x_range: both
         for axis in fig.axes:
             finish_axes(axis, look if axis is ax else ({**look, "aspect": None} if look else None))
         if rescaled:                                                    # the right axis label in the colour of its line

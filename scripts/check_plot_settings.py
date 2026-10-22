@@ -81,7 +81,7 @@ def changed_value(name: str, current):
         "colorbar_ticks_at": [0, 0.5], "colorbar_length": 0.5, "colorbar_fraction": 0.3, "image_y": "name",
         "note_arrow_head": "-|>", "inset_position": "lower left", "inset_scale": 0.6,
         "panel_letter_format": "{}.", "panel_letter_case": "upper", "panel_letter_position": "inside",
-        "panel_spacing": 0.2,
+        "panel_spacing": 0.2, "x_range": [600, 1500], "y_range": [None, 0.8],
     }
     base = name
     for prefix in SIDES + ("x", "y"):                       # top_tick_length -> tick_length
@@ -123,6 +123,8 @@ def changed_value(name: str, current):
         return 2.5
     if name.endswith("_count"):
         return 1
+    if name.endswith("_margin"):
+        return 0.3
     raise ValueError(f"no test value for {name}")
 
 
@@ -387,7 +389,8 @@ def main() -> int:
              "label_overlap": "hide", "peak_label_color": "notacolour", "top_axis": "left", "x_log": "yes",
              "top_axis_laser": 0, "inset_scale": 2, "color_limits": 5, "colorbar_length": 0,
              "panel_letter_format": "x", "panel_spacing": 0.9, "mean_band": "var", "scale_bar": -1,
-             "image_y": "letter", "note_arrow_head": "=>", "line_name_color": "nocolour"}
+             "image_y": "letter", "note_arrow_head": "=>", "line_name_color": "nocolour", "x_range": [1, 2, 3], "y_range": [1, 1],
+             "x_margin": -0.1}
     for name, value in wrong.items():
         try:
             get_style("clean", **{name: value})

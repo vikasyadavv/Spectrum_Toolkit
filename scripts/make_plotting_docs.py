@@ -83,6 +83,9 @@ PICTURE_LIST = [
      dict(highlight=[{"range": [1560, 1640], "label": "G band", "color": "blue", "edge_color": "blue"},
                      {"range": [1330, 1410], "label": "D band", "hatch": "//", "color": "0.5", "alpha": 0.1}],
           highlight_label_weight="bold", highlight_label_size=10)),
+    ("axis_limits.png", "y_range [0, 0.5] cuts off the tall bands so the small ones show; their peak labels "
+                        "stay at the top of the box. x_margin 0: the spectra touch the box left and right.",
+     dict(y_range=[0, 0.5], x_margin=0, peaks=4)),
     ("second_axes.png", "A second x axis on top (absolute wavelength for a 532 nm laser) and a second y axis "
                         "on the right (counts per second at 10 s exposure).",
      dict(top_axis="wavelength", top_axis_laser=532, right_axis="scale", right_axis_scale=0.1,
@@ -289,6 +292,21 @@ CMYK file use `color_mode="cmyk"` with tiff or jpg (see **Saving**).
 ## Figure size and shape
 
 {section(["size", "units", "aspect"])}
+
+## Axis limits
+
+`x_range` and `y_range` fix the ends of an axis; `null` (None) on one side
+leaves that end automatic, e.g. `"y_range": [0, null]` starts at zero. Use
+them to give several figures the same scale, or to cut off one huge band so
+the small ones show. The order of the two numbers does not matter, and
+`invert_x` still decides the direction. `region` (a plot argument) picks an
+x part and fits y to the data inside it; `y_range`, when set, wins over that
+fit. A band cut off by `y_range` keeps its peak label, moved down to the top
+of the box. The margins set the white space where an end is automatic.
+
+{section(["x_range", "y_range", "x_margin", "y_margin"])}
+
+{picture("axis_limits.png")}
 
 ## Text: the base for all text
 
