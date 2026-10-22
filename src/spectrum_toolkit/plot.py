@@ -78,6 +78,40 @@ def _rows(item: Data) -> tuple[np.ndarray, np.ndarray, tuple]:
     raise TypeError(f"Can only plot Spectrum or SpectrumCollection, got {type(item).__name__}.")
 
 
+def _group_labels(item: Data) -> list[str]:
+    """The group of each spectrum of an item ("(no group)" for none)."""
+    from .groups import NO_GROUP
+    if isinstance(item, Spectrum):
+        return [item.group or NO_GROUP]
+    return [g or NO_GROUP for g in item.groups] if item.groups else [NO_GROUP] * len(item)
+
+
+def _check_color_by(color_by, kind: str, data) -> list | None:
+    """color_by checked: None, or the group of every spectrum (refused when no spectrum has a group)."""
+    from .groups import NO_GROUP
+    if color_by is None:
+        return None
+    if color_by != "group":
+        raise ValueError(f'color_by must be "group" or None; got {color_by!r}.')
+    if kind == "image":
+        raise ValueError('color_by="group" is for kind "lines", "stack" and "mean"; an image has no line colours.')
+    labels = [g for item in data for g in _group_labels(item)]
+    if all(g == NO_GROUP for g in labels):
+        raise ValueError("These spectra have no groups yet; set them with set_groups "
+                         "(suggest_groups proposes some).")
+    return labels
+
+
+def _split_groups(item: Data) -> list:
+    """(group, data) for each group of an item, in the order the groups first appear."""
+    from .groups import NO_GROUP, by_group
+    if isinstance(item, Spectrum):
+        return [(item.group or NO_GROUP, item)]
+    if not item.groups:
+        return [(NO_GROUP, item)]
+    return list(by_group(item).items())
+
+
 def _spike_ranges(item: Data, name: str | None = None) -> list[tuple[float, float]]:
     """x ranges of the spikes that despike removed (from history), for one name or all."""
     ranges = []
@@ -807,7 +841,7 @@ def _second_axes(ax, look) -> None:
 
 def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] | None = None,
          offset: float | None = None, labels: list[str] | None = None, color=None, highlight=None,
-         emphasize: list | int | str | None = None,
+         emphasize: list | int | str | None = None, color_by: str | None = None,
          peaks: int | list | None = None, marks: dict | list | None = None, title: str | None = None,
          xlabel: str | None = None, ylabel: str | None = None, invert_x: bool = False,
          notes: list | None = None, inset: list | dict | None = None,
@@ -832,6 +866,9 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     emphasize : spectra to bring forward, by number (0 = first) or name, e.g.
         [0, 3]: drawn on top, thicker (emphasize_width) and solid; the others
         fade (faded_alpha). For "mean", the numbers count the collections.
+    color_by : "group": one colour per group (see set_groups), and one legend
+        entry per group; with kind="mean", one mean per group. labels then
+        name the groups. Spectra in no group are shown as "(no group)".
     peaks : label band positions (on the first spectrum, or see peak_spectra):
         a number (that many of the most prominent bands) or a list of x positions.
     marks : vertical lines: a list of x, a dict x -> label, or x -> a dict
@@ -866,6 +903,11 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     inset = _check_inset(inset)
     if color is not None:                                           # old argument: same as line_color
         style_settings.setdefault("line_color", color)
+    group_of = _check_color_by(color_by, kind, data)                # one group per spectrum, or None
+    if group_of is not None and kind == "mean":                     # one mean per group
+        parts = [(g, part) for item in data for g, part in _split_groups(item)]
+        data = tuple(part for _, part in parts)
+        labels = list(labels) if labels else [g for g, _ in parts]
     look = get_style(style, **style_settings)
     plt = _plt()
     with styled(look):
@@ -930,10 +972,22 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
             n_lines = len(rows)
         else:
             all_names = [n for _, _, names in rows for n in names]
+            if group_of is not None:                                 # labels name the groups
+                order = list(dict.fromkeys(group_of))
+                if labels and len(labels) != len(order):
+                    raise ValueError(f"Got {len(labels)} labels for {len(order)} groups ({', '.join(order)}).")
+                called = dict(zip(order, labels or order))
+                labels = [called[g] for g in group_of]
             labels = list(labels) if labels else all_names
             if len(labels) != n_total:
                 raise ValueError(f"Got {len(labels)} labels for {n_total} spectra.")
             colors = _line_colors(look, plt, n_total)
+            entries = labels                                         # legend text per line
+            if group_of is not None:                                 # one colour and one legend entry per group
+                palette = _line_colors(look, plt, len(order))
+                colors = [palette[order.index(g)] for g in group_of]
+                entries = [label if group_of.index(g) == k else "_" + label
+                           for k, (g, label) in enumerate(zip(group_of, labels))]
             chosen = _emphasized(emphasize, all_names, labels, n_total)
             if kind == "stack" and offset is None:
                 # Automatic shift: 60 % of the typical (median) height of one spectrum:
@@ -954,7 +1008,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
                         segments.append(np.column_stack([xd, yd]))    # drawn together below, much faster
                         spectra.append((x, y, colors[k]))
                     else:
-                        line = _draw(ax, xd, yd, k, colors[k], look, chosen, base, label=labels[k])
+                        line = _draw(ax, xd, yd, k, colors[k], look, chosen, base, label=entries[k])
                         spectra.append((x, y, line.get_color()))
                     k += 1
             if segments:
@@ -967,9 +1021,12 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
                     see_through = see_through if look["line_alpha"] is None else None   # None: alpha in the colours
                 ax.add_collection(LineCollection(segments, colors=colors, linewidths=width, alpha=see_through))
                 ax.autoscale_view()
+                for k, label in enumerate(entries):                  # groups still get their legend entries
+                    if not label.startswith("_") and group_of is not None:
+                        ax.plot([], [], color=colors[k], label=label)
             if kind == "stack":
                 ax.set_yticks([])                                    # absolute values mean little once shifted
-            n_lines = n_total
+            n_lines = n_total if group_of is None else len(order)
         if highlight == "spikes":
             # spikes outside the drawn x range (cut off by trim) would stretch the axis: skip them
             _shade(ax, _inside([r for item in data for r in _spike_ranges(item)], drawn), look)
@@ -1014,8 +1071,12 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
 
 
 # The plot arguments a panel can have; every other key of a panel is a style setting.
-PANEL_ARGUMENTS = ("data", "kind", "region", "offset", "labels", "color", "highlight", "emphasize", "peaks",
-                   "marks", "title", "xlabel", "ylabel", "invert_x", "notes", "inset", "letter")
+PANEL_ARGUMENTS = ("data", "kind", "region", "offset", "labels", "color", "highlight", "emphasize", "color_by",
+                   "peaks", "marks", "title", "xlabel", "ylabel", "invert_x", "notes", "inset", "letter",
+                   "after", "index", "removed")
+# The arguments of a panel of kind "compare" (a before/after view, as stk.compare).
+_COMPARE_ARGUMENTS = ("data", "kind", "after", "index", "region", "removed", "labels", "title", "xlabel",
+                      "invert_x", "letter")
 
 
 def _panel_layout(n: int, layout) -> list[list]:
@@ -1079,7 +1140,8 @@ def _panel_letter(ax, text: str, look) -> None:
         t.set_fontweight(use["panel_letter_weight"])
 
 
-def panels(items: list, layout: list | tuple | str | None = None, *, widths: list | None = None,
+def panels(items: list, layout: list | tuple | str | None = None, *, by: str | None = None,
+           kind: str | None = None, widths: list | None = None,
            heights: list | None = None, share_x: bool = False, share_y: bool = False, title: str | None = None,
            xlabel: str | None = None, ylabel: str | None = None, style: str | dict | None = None,
            save: str | None = None, **style_settings: Any) -> list:
@@ -1094,6 +1156,14 @@ def panels(items: list, layout: list | tuple | str | None = None, *, widths: lis
         "inset" ...; see ``plot``). Any other key of the dict is a style
         setting for that panel only, e.g. {"data": d, "kind": "stack",
         "line_width": 2}. "letter" replaces the panel's letter (False: none).
+        Kind "compare" is a before/after view as ``compare``:
+        {"data": before, "after": after, "kind": "compare", "index": 0,
+        "region": ..., "removed": ..., "labels": ...}; its "removed" strip
+        stays under it, in the same place of the layout.
+    by : "group": items is one collection (or Spectrum / list of them) and
+        each group (see set_groups) gets a panel, titled with its name and
+        number of spectra.
+    kind : the kind of every panel that does not give its own.
     layout : [rows, columns]; or text such as "AA;BC" (rows split by ";",
         one letter per panel in the order of items, the same letter in several
         places for a panel across them, "." for an empty place); default one
@@ -1114,13 +1184,29 @@ def panels(items: list, layout: list | tuple | str | None = None, *, widths: lis
     Returns the list of the panels' matplotlib Axes (``axes[0].figure`` is the figure).
     """
     from .style import _size_inches, place_outside_legend
+    if by is not None:                                               # one panel per group
+        if by != "group":
+            raise ValueError(f'by must be "group" or None; got {by!r}.')
+        data = items if isinstance(items, (list, tuple)) else [items]
+        if _check_color_by("group", "lines", data) is None:
+            raise ValueError("Nothing to split into groups.")
+        items = [{"data": part, "title": f"{group} ({len(_rows(part)[1])})"}
+                 for item in data for group, part in _split_groups(item)]
     if not isinstance(items, (list, tuple)) or not items:
         raise ValueError("panels needs a list with at least one panel.")
+    if kind is not None and kind not in KINDS + ("compare",):
+        raise ValueError(f"Unknown kind {kind!r}. Choose one of: {', '.join(KINDS + ('compare',))}.")
     entries = []
     for i, item in enumerate(items):                                 # every panel as a dict, checked
         entry = dict(item) if isinstance(item, dict) else {"data": item}
         if "data" not in entry:
             raise ValueError(f'Panel {i + 1} has no "data".')
+        if kind is not None:
+            entry.setdefault("kind", kind)
+        if entry.get("kind") == "compare" and "after" not in entry:
+            raise ValueError(f'Panel {i + 1}: kind "compare" needs "after" (the data after the step).')
+        if entry.get("kind") != "compare" and any(k in entry for k in ("after", "index", "removed")):
+            raise ValueError(f'Panel {i + 1}: "after", "index" and "removed" are for kind "compare".')
         entries.append(entry)
     grid = _panel_layout(len(entries), layout)
     rows, cols = len(grid), len(grid[0])
@@ -1139,11 +1225,16 @@ def panels(items: list, layout: list | tuple | str | None = None, *, widths: lis
         across, down = (use[k] if use[k] is not None else use["panel_spacing"]       # x and y, else both
                         for k in ("panel_spacing_x", "panel_spacing_y"))
         fig.get_layout_engine().set(wspace=across, hspace=down)
-        for ax in axes[1:]:                                          # shared ranges; which numbers show is set below
+        views = [i for i, e in enumerate(entries) if e.get("kind") == "compare"]     # drawn in a new place below
+        anchor = next((i for i in range(len(entries)) if i not in views), None)       # the panel the others follow
+        for i, ax in enumerate(axes):                                # shared ranges; which numbers show is set below
+            if i in views or i == anchor:
+                continue
             if share_x:
-                ax.sharex(axes[0])
+                ax.sharex(axes[anchor])
             if share_y:
-                ax.sharey(axes[0])
+                ax.sharey(axes[anchor])
+        strips = {}                                                  # compare panels: their "removed" strip
         images = [i for i, e in enumerate(entries) if e.get("kind") == "image"]
         limits = _shared_limits([entries[i] for i in images], look) if shared_bar and images else None
         looks = []
@@ -1156,7 +1247,16 @@ def panels(items: list, layout: list | tuple | str | None = None, *, widths: lis
             if figure_legend:                                        # one legend for the figure (drawn below)
                 own = {**own, "legend": False}
             try:
-                plot(*data, ax=ax, style=style, **arguments, **{**style_settings, **own})
+                if i in views:
+                    ax = axes[i] = _compare_panel(entry, ax, style, {**style_settings, **own}, strips, i)
+                    first = axes[anchor] if anchor is not None else axes[views[0]]
+                    if ax is not first:                              # follow the others' ranges
+                        if share_x:
+                            ax.sharex(first)
+                        if share_y:
+                            ax.sharey(first)
+                else:
+                    plot(*data, ax=ax, style=style, **arguments, **{**style_settings, **own})
             except (TypeError, ValueError) as error:                 # say which panel is wrong
                 raise ValueError(f"Panel {i + 1}: {error}") from None
             panel_look = get_style(style, **{**style_settings, **own})
@@ -1169,8 +1269,9 @@ def panels(items: list, layout: list | tuple | str | None = None, *, widths: lis
                     name = name.upper() if panel_use["panel_letter_case"] == "upper" else name
                     letter = panel_use["panel_letter_format"].format(name)
                 _panel_letter(ax, letter, panel_look)
-        _shared_labels(fig, axes, look, xlabel, ylabel)                # before the inner labels are removed
-        _outer_numbers(axes, grid, share_x, share_y)
+        bottoms = [strips.get(i, ax) for i, ax in enumerate(axes)]   # where each panel's x numbers are
+        _shared_labels(fig, axes, look, xlabel, ylabel, bottoms)       # before the inner labels are removed
+        _outer_numbers(axes, grid, share_x, share_y, bottoms)
         if figure_legend:
             _figure_legend(fig, axes, look, under_title=bool(title))
         if limits is not None:
@@ -1191,6 +1292,22 @@ def panels(items: list, layout: list | tuple | str | None = None, *, widths: lis
     return axes
 
 
+def _compare_panel(entry: dict, ax, style, settings: dict, strips: dict, i: int):
+    """A panel of kind "compare" in the place of ax; returns the view's axes (its strip goes in strips[i])."""
+    unknown = sorted(k for k in entry if k in PANEL_ARGUMENTS and k not in _COMPARE_ARGUMENTS)
+    if unknown:
+        raise ValueError(f'{", ".join(unknown)} cannot be used with kind "compare"; it takes '
+                         f'{", ".join(k for k in _COMPARE_ARGUMENTS if k not in ("data", "kind", "letter"))}.')
+    before = entry["data"][0] if isinstance(entry["data"], (list, tuple)) else entry["data"]
+    look = get_style(style, **settings)
+    view, strip = _compare_view(before, entry["after"], entry.get("index", 0), entry.get("region"),
+                                entry.get("removed", "auto"), tuple(entry.get("labels") or ("before", "after")),
+                                entry.get("title"), entry.get("xlabel"), entry.get("invert_x", False), ax, look)
+    if strip is not None:
+        strips[i] = strip
+    return view
+
+
 def _legend_under_title(fig) -> None:
     """A legend at the top of a figure with a title: under the title, with the panels moved down to make room.
 
@@ -1206,8 +1323,12 @@ def _legend_under_title(fig) -> None:
     leg.set_bbox_to_anchor((0, 0, 1, under / height), transform=fig.transFigure)
 
 
-def _outer_numbers(axes, grid, share_x: bool, share_y: bool) -> None:
-    """Shared axes: x numbers and label only where no panel is below, y only where none is to the left."""
+def _outer_numbers(axes, grid, share_x: bool, share_y: bool, bottoms=None) -> None:
+    """Shared axes: x numbers and label only where no panel is below, y only where none is to the left.
+
+    bottoms: the axes that carries each panel's x numbers (a compare panel's strip), default the panel.
+    """
+    bottoms = bottoms or axes
     for k, ax in enumerate(axes):
         places = [(r, c) for r, row in enumerate(grid) for c, v in enumerate(row) if v == k]
         bottom, left = max(r for r, _ in places), min(c for _, c in places)
@@ -1215,22 +1336,26 @@ def _outer_numbers(axes, grid, share_x: bool, share_y: bool) -> None:
         below = any(grid[r][c] not in (None, k) for r in range(bottom + 1, len(grid)) for c in cols_of)
         beside = any(grid[r][c] not in (None, k) for r in rows_of for c in range(left))
         if share_x and below:
-            ax.tick_params(labelbottom=False)
-            ax.set_xlabel("")
+            bottoms[k].tick_params(labelbottom=False)
+            bottoms[k].set_xlabel("")
         if share_y and beside:
             ax.tick_params(labelleft=False)
             ax.set_ylabel("")
 
 
-def _shared_labels(fig, axes, look, xlabel, ylabel) -> None:
-    """panel_shared_labels: one x label under the figure and/or one y label on its left."""
+def _shared_labels(fig, axes, look, xlabel, ylabel, bottoms=None) -> None:
+    """panel_shared_labels: one x label under the figure and/or one y label on its left.
+
+    bottoms: the axes that carries each panel's x label (a compare panel's strip), default the panel.
+    """
     from .style import style_axis_label
     shared = (look or DEFAULTS)["panel_shared_labels"]
     for axis, own, wanted in (("x", xlabel, shared in (True, "x")), ("y", ylabel, shared in (True, "y"))):
         if not wanted:
             continue
-        text = own if own is not None else getattr(axes[0], f"get_{axis}label")()
-        for ax in axes:                                              # the panels' own labels go
+        holders = (bottoms or axes) if axis == "x" else axes
+        text = own if own is not None else getattr(holders[0], f"get_{axis}label")()
+        for ax in holders:                                           # the panels' own labels go
             getattr(ax, f"set_{axis}label")("")
         label = fig.supxlabel(text) if axis == "x" else fig.supylabel(text)
         if look:
@@ -1290,8 +1415,10 @@ def _shared_colorbar(fig, axes, look, first) -> None:
                  fraction=use["colorbar_fraction"], shrink=use["colorbar_length"], ticks=use["colorbar_ticks_at"])
 
 
-def _describe(step: dict) -> str:
-    """One-line description of a history step, e.g. 'baseline: airpls, lam=1e+06'."""
+def _describe(step: dict, short: bool = False) -> str:
+    """One-line description of a history step, e.g. 'baseline: airpls, lam=1e+06'; short: 'baseline (airpls)'."""
+    if short:
+        return f"{step.get('step', '?')} ({step['method']})" if step.get("method") else step.get("step", "?")
     skip = {"step", "method", "spikes"}
     settings = ", ".join(f"{k}={v:g}" if isinstance(v, float) else f"{k}={v}"
                          for k, v in step.items() if k not in skip and v is not None)
@@ -1311,7 +1438,7 @@ def _pick(item: Data, index: int | str) -> Spectrum:
 
 def compare(before: Data, after: Data, index: int | str = 0, *, region: tuple[float, float] | None = None,
             removed: bool | str = "auto", labels: tuple[str, str] = ("before", "after"),
-            title: str | None = None, xlabel: str | None = None, invert_x: bool = False,
+            title: str | None = None, xlabel: str | None = None, invert_x: bool = False, ax=None,
             style: str | dict | None = None, save: str | None = None, **style_settings: Any):
     """Before/after view of a processing step, for one spectrum.
 
@@ -1324,13 +1451,24 @@ def compare(before: Data, after: Data, index: int | str = 0, *, region: tuple[fl
         when both have the same x and the step does not change the scale.
     labels : legend labels of the two lines.
     title : default: the step and its settings, from ``after.history``.
+    ax : draw into the place of this matplotlib Axes (it is split in two when
+        the "removed" part is shown); default a new figure. ``panels`` uses
+        this for panels of kind "compare".
     style, save, xlabel, invert_x, **style_settings : as in ``plot``.
 
     Returns the matplotlib Axes of the top panel (the lower one is
-    ``ax.figure.axes[1]`` when shown).
+    ``ax.figure.axes[1]`` when shown on a figure of its own).
     """
-    plt = _plt()
     look = get_style(style, **style_settings)
+    with styled(look):
+        ax, _ = _compare_view(before, after, index, region, removed, labels, title, xlabel, invert_x, ax, look)
+        _save(ax, save, look)
+    return ax
+
+
+def _compare_view(before, after, index, region, removed, labels, title, xlabel, invert_x, ax, look) -> tuple:
+    """compare's view, on a figure of its own (ax None) or in the place of ax; returns (top, strip or None)."""
+    plt = _plt()
     b, a = _pick(before, index), _pick(after, index)
     step = a.history[-1] if len(a.history) > len(b.history) else {}
     rescaled = step.get("step") in ("normalize", "derivative")      # the y scale is different afterwards
@@ -1339,61 +1477,84 @@ def compare(before: Data, after: Data, index: int | str = 0, *, region: tuple[fl
         removed = same_x and not rescaled
     elif removed and not same_x:
         raise ValueError("Cannot show what was removed: before and after have different x (resample first).")
-    with styled(look):
-        palette = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["tab:blue", "tab:red"])
-        main, second = palette[0], palette[1 % len(palette)]
-        if removed:
-            w, h = plt.rcParams["figure.figsize"]
-            fig, (ax, low) = plt.subplots(2, 1, sharex=True, gridspec_kw={"height_ratios": [2.2, 1]},
-                                          figsize=(w, max(h, w * 0.6)))
-        else:
-            fig, ax = plt.subplots()
-        ax.plot(b.x, b.y, color="0.55", label=labels[0])
-        drawn = [(b.x, b.y)]
-        target = ax.twinx() if rescaled else ax                        # own y axis when the scale changed
-        target.plot(a.x, a.y, color=main, label=labels[1])
-        if rescaled:
-            target.set_ylabel(a.y_unit or f"{labels[1]} ({step.get('method', '')})", color=main)
-            target.grid(False)
-            ax.plot([], [], color=main, label=labels[1])                # so the legend lists both lines
-        else:
-            drawn.append((a.x, a.y))
-        if step.get("step") == "baseline" and same_x:
-            ax.plot(b.x, b.y - a.y, "--", color=second, label="baseline")
-        # Shade spikes only when the step shown is despike (not earlier steps).
-        spikes = [(e["x_from"], e["x_to"]) for e in step.get("spikes", {}).get(a.name, [])]
-        _shade(ax, spikes, look)
-        if removed:
-            low.plot(b.x, b.y - a.y, color="k")
-            low.axhline(0, color="0.6", lw=0.6, marker="None")
-            low.set_ylabel("removed")
-            _shade(low, spikes, look)
-        margin = (look or DEFAULTS)["y_margin"]
-        if region:
-            _zoom(ax, region, drawn, margin)
-            if removed:
-                m = (b.x >= min(region)) & (b.x <= max(region))
-                d = (b.y - a.y)[m]
-                if d.size:
-                    pad = margin * (np.ptp(d) or 1)
-                    low.set_ylim(d.min() - pad, d.max() + pad)
-        title = title if title is not None else (_describe(step) if step else "")
-        title = f"{a.name}: {title}" if a.name and title else (a.name or title)
-        legend(ax, look, 2, force=True)
-        ax.set_title(title, fontsize="medium")
-        ax.set_ylabel(b.y_unit or "Intensity")
-        bottom = low if removed else ax
-        bottom.set_xlabel(xlabel if xlabel is not None else (b.x_unit or "x"))
-        if invert_x and not ax.xaxis_inverted():
-            ax.invert_xaxis()
-        _ranges(ax, look)                                               # y_range: the top panel; x_range: both
-        for axis in fig.axes:
-            finish_axes(axis, look if axis is ax else ({**look, "aspect": None} if look else None))
-        if rescaled:                                                    # the right axis label in the colour of its line
-            target.yaxis.label.set_color(main)
+    own_figure = ax is None
+    if own_figure and removed:
+        w, h = plt.rcParams["figure.figsize"]
+        fig, (ax, low) = plt.subplots(2, 1, sharex=True, gridspec_kw={"height_ratios": [2.2, 1]},
+                                      figsize=(w, max(h, w * 0.6)))
+    elif own_figure:
+        fig, ax = plt.subplots()
+        low = None
+    elif removed:                                                   # the strip hangs under the view's own box, so
+        fig = ax.figure                                             # boxes in a column of panels stay lined up
+        low = ax.inset_axes([0, -1 / 2.2 - 0.05, 1, 1 / 2.2], sharex=ax)    # 2.2 : 1, as on its own figure
+    else:
+        fig, low = ax.figure, None
+    # On its own figure the legend always shows (as before); in a given place legend=False is respected.
+    show = True if own_figure else (look is None or look["legend"] is not False)
+    _compare_into(ax, low, b, a, step, rescaled, same_x, region, labels, title, xlabel, invert_x, look, show,
+                  short_title=not own_figure)
+    if own_figure:
         fig.tight_layout()
-        _save(ax, save, look)
-    return ax
+    return ax, low
+
+
+def _compare_into(ax, low, b: Spectrum, a: Spectrum, step: dict, rescaled: bool, same_x: bool, region,
+                  labels, title, xlabel, invert_x: bool, look, show_legend: bool = True,
+                  short_title: bool = False) -> None:
+    """Draw a before/after view into ax (and the "removed" part into low, when given).
+
+    show_legend False: no legend (a panel whose names go in the figure legend).
+    short_title: the default title without the settings, "baseline (airpls)" (for a panel).
+    """
+    plt = _plt()
+    palette = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["tab:blue", "tab:red"])
+    main, second = palette[0], palette[1 % len(palette)]
+    ax.plot(b.x, b.y, color="0.55", label=labels[0])
+    drawn = [(b.x, b.y)]
+    target = ax.twinx() if rescaled else ax                        # own y axis when the scale changed
+    target.plot(a.x, a.y, color=main, label=labels[1])
+    if rescaled:
+        target.set_ylabel(a.y_unit or f"{labels[1]} ({step.get('method', '')})", color=main)
+        target.grid(False)
+        ax.plot([], [], color=main, label=labels[1])                # so the legend lists both lines
+    else:
+        drawn.append((a.x, a.y))
+    if step.get("step") == "baseline" and same_x:
+        ax.plot(b.x, b.y - a.y, "--", color=second, label="baseline")
+    # Shade spikes only when the step shown is despike (not earlier steps).
+    spikes = [(e["x_from"], e["x_to"]) for e in step.get("spikes", {}).get(a.name, [])]
+    _shade(ax, spikes, look)
+    if low is not None:
+        low.plot(b.x, b.y - a.y, color="k")
+        low.axhline(0, color="0.6", lw=0.6, marker="None")
+        low.set_ylabel("removed")
+        _shade(low, spikes, look)
+    margin = (look or DEFAULTS)["y_margin"]
+    if region:
+        _zoom(ax, region, drawn, margin)
+        if low is not None:
+            m = (b.x >= min(region)) & (b.x <= max(region))
+            d = (b.y - a.y)[m]
+            if d.size:
+                pad = margin * (np.ptp(d) or 1)
+                low.set_ylim(d.min() - pad, d.max() + pad)
+    title = title if title is not None else (_describe(step, short=short_title) if step else "")
+    title = f"{a.name}: {title}" if a.name and title else (a.name or title)
+    legend(ax, look, 2, force=show_legend)
+    ax.set_title(title, fontsize="medium")
+    ax.set_ylabel(b.y_unit or "Intensity")
+    bottom = low if low is not None else ax
+    bottom.set_xlabel(xlabel if xlabel is not None else (b.x_unit or "x"))
+    if low is not None:
+        ax.tick_params(labelbottom=False)                           # the numbers go under the strip
+    if invert_x and not ax.xaxis_inverted():
+        ax.invert_xaxis()
+    _ranges(ax, look)                                               # y_range: the top panel; x_range: both
+    for axis in dict.fromkeys(a for a in (ax, low, target) if a is not None):   # the view, the strip, the right axis
+        finish_axes(axis, look if axis is ax else ({**look, "aspect": None} if look else None))
+    if rescaled:                                                    # the right axis label in the colour of its line
+        target.yaxis.label.set_color(main)
 
 
 def scatter(x, y, groups=None, *, names: list[str] | None = None, ax=None, marker: str = "o",

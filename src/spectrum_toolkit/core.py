@@ -81,6 +81,7 @@ class Spectrum:
     history : processing steps applied so far, oldest first. Each entry is a
         dict with at least a "step" key, so the full recipe can be saved and
         re-applied to another file.
+    group : the sample or class it belongs to, e.g. "CV"; "" for none.
     """
 
     # The fields of the object, in the order they can be passed when creating
@@ -95,6 +96,7 @@ class Spectrum:
     meta: dict = field(default_factory=dict)
     # A tuple (not a list) because tuples cannot be modified after creation.
     history: tuple = ()
+    group: str = ""
 
     def __post_init__(self) -> None:
         """Check and clean the data right after the object is created."""
@@ -113,6 +115,7 @@ class Spectrum:
         object.__setattr__(self, "y", y)
         # Accept a list for history too, but always store it as a tuple.
         object.__setattr__(self, "history", tuple(self.history))
+        object.__setattr__(self, "group", "" if self.group is None else str(self.group))
 
     def __len__(self) -> int:
         """len(spectrum) gives the number of points."""
@@ -216,6 +219,9 @@ class SpectrumCollection:
         e.g. k = 2 for X, Y.
     meta : anything read from the file.
     history : processing steps applied to all spectra, oldest first.
+    groups : one group label per spectrum (the sample or class, e.g. "CV"),
+        "" for a spectrum in no group; () when no groups are set. Groups
+        follow their spectra through every step. Set them with set_groups.
     """
 
     x: np.ndarray
@@ -227,6 +233,7 @@ class SpectrumCollection:
     positions: np.ndarray | None = None
     meta: dict = field(default_factory=dict)
     history: tuple = ()
+    groups: tuple = ()
 
     def __post_init__(self) -> None:
         """Check and clean the data right after the object is created."""
@@ -252,6 +259,11 @@ class SpectrumCollection:
         object.__setattr__(self, "Y", Y)
         object.__setattr__(self, "names", names)
         object.__setattr__(self, "history", tuple(self.history))
+        # Groups: one text per spectrum ("" = none); all empty is the same as no groups.
+        groups = tuple("" if g is None else str(g) for g in self.groups)
+        if groups and len(groups) != Y.shape[0]:
+            raise ValueError(f"Got {len(groups)} groups for {Y.shape[0]} spectra; give one per spectrum.")
+        object.__setattr__(self, "groups", groups if any(groups) else ())
 
     def __len__(self) -> int:
         """len(collection) gives the number of spectra (rows)."""
@@ -260,7 +272,8 @@ class SpectrumCollection:
     def __getitem__(self, i: int) -> Spectrum:
         """collection[i] gives spectrum number i as a Spectrum (0 is the first)."""
         return Spectrum(self.x, self.Y[i], name=self.names[i], x_unit=self.x_unit,
-                        y_unit=self.y_unit, meta=self.meta, history=self.history)
+                        y_unit=self.y_unit, meta=self.meta, history=self.history,
+                        group=self.groups[i] if self.groups else "")
 
     def __iter__(self) -> Iterator[Spectrum]:
         """Lets you write: for s in collection: ..."""
@@ -331,6 +344,28 @@ class SpectrumCollection:
         from .recipe import apply
         return apply(self, recipe, verbose)
 
+    # ----- groups (the work is done in groups.py) -----
+    def set_groups(self, groups: Any = None, *, pattern: str | None = None,
+                   rename: dict | None = None) -> "SpectrumCollection":
+        """Say which group (sample) each spectrum belongs to. See ``spectrum_toolkit.groups.set_groups``."""
+        from .groups import set_groups
+        return set_groups(self, groups, pattern=pattern, rename=rename)
+
+    def suggest_groups(self) -> dict:
+        """Propose groups from the files or the names, without setting them. See ``groups.suggest_groups``."""
+        from .groups import suggest_groups
+        return suggest_groups(self)
+
+    def by_group(self) -> dict:
+        """One collection per group, in the order the groups first appear. See ``groups.by_group``."""
+        from .groups import by_group
+        return by_group(self)
+
+    @property
+    def group_names(self) -> list[str]:
+        """The groups, in the order they first appear ("" = spectra in no group)."""
+        return list(dict.fromkeys(self.groups))
+
     @property
     def n_points(self) -> int:
         """Number of points in each spectrum (length of the shared x axis)."""
@@ -353,4 +388,4 @@ class SpectrumCollection:
         first = spectra[0]
         # vstack puts the y arrays on top of each other: one row per spectrum.
         return cls(x, np.vstack([s.y for s in spectra]), names=tuple(s.name for s in spectra),
-                   x_unit=first.x_unit, y_unit=first.y_unit)
+                   x_unit=first.x_unit, y_unit=first.y_unit, groups=tuple(s.group for s in spectra))

@@ -143,6 +143,22 @@ def make_pictures() -> None:
                       layout=[1, 2], panel_colorbar="shared", panel_spacing_x=0.06, size=(12, 7))
     stk.export(axes[0], PICTURES / "panels_colorbar.png", dpi=90)
     plt.close("all")
+    # before/after views as panels: a sloping background removed, then the scale changed
+    raw = data.copy_with(Y=data.Y + np.linspace(0.3, 0.05, data.x.size))
+    flat = raw.baseline()
+    axes = stk.panels([{"data": raw, "after": flat, "kind": "compare"},
+                       {"data": flat, "after": flat.normalize("max"), "kind": "compare"}], layout=[1, 2], size=(12, 7))
+    stk.export(axes[0], PICTURES / "panels_compare.png", dpi=90)
+    plt.close("all")
+    # groups: one colour per group, and one mean per group
+    many = SpectrumCollection(data.x, np.vstack([data.Y, data.Y * 0.9 + 0.02, data.Y[::-1] * 0.8]),
+                              names=[f"{g} {k}" for g in ("CV", "MB", "RhB") for k in (1, 2, 3)],
+                              x_unit=data.x_unit, y_unit=data.y_unit).set_groups("name")
+    axes = stk.panels([{"data": many, "color_by": "group", "title": "color_by=\"group\""},
+                       {"data": many, "kind": "mean", "color_by": "group", "title": "kind=\"mean\", color_by=\"group\""}],
+                      layout=[1, 2], size=(12, 7))
+    stk.export(axes[0], PICTURES / "groups.png", dpi=90)
+    plt.close("all")
 
 
 # ------------------------------------------------------------------ text
@@ -661,6 +677,55 @@ else the 1st and 99th percentile of all of them) and one colour bar.
 
 *Two image panels with one colour bar and one colour scale, and more space between the columns.*
 
+**Before/after views as panels (kind "compare").** A panel can be the view
+`stk.compare` draws: `{{"data": before, "after": after, "kind": "compare"}}`
+with optional `"index"` (which spectrum, by number or name), `"region"`,
+`"removed"` and `"labels"`, as in `stk.compare`. The "removed" strip hangs
+under its panel, so the boxes of a column still line up and `share_x` works
+across ordinary and compare panels. The default title is the step and its
+method, e.g. "baseline (airpls)" (`stk.compare` on its own figure also lists
+the settings). On the website the panel is the same, with `"after"` as data.
+
+```python
+raw = stk.load("CV10-4M.xlsx"); clean = raw.despike()
+stk.panels([{{"data": raw, "after": clean, "kind": "compare", "index": 3, "region": [1550, 1750]}},
+            {{"data": clean, "after": clean.baseline(), "kind": "compare", "index": 3}}], layout=[1, 2])
+```
+
+![Two before/after panels: the baseline removed (with what was removed under it), then normalized (own scale on the right).](plotting/panels_compare.png)
+
+*Two before/after panels: the baseline removed (with what was removed under it), then normalized (own scale on the right).*
+
+## Groups (which sample each spectrum is)
+
+Groups are stored with the data, one label per spectrum (`c.groups`), and
+follow the spectra through every step. Set them in one of five ways:
+
+| Way | Python | Website (`/groups`) |
+|---|---|---|
+| spectrum numbers or names | `c.set_groups({{"CV": range(0, 14), "MB": range(14, 19)}})` | `"groups": {{"CV": [0, 1, ...], "MB": [...]}}` |
+| one label per spectrum | `c.set_groups(["CV", "CV", "MB", ...])` | `"groups": ["CV", "CV", "MB", ...]` |
+| from the names | `c.set_groups("name")`: "CV 1", "CV_2" → CV | `"groups": "name"` |
+| your own rule | `c.set_groups(pattern=r"^(\\w+)_")`: the part in brackets | `"pattern": "^(\\\\w+)_"` |
+| the file | `stk.combine("CV.txt", "MB.txt", groups="file")` | (several files: later) |
+
+`rename={{"CV10-4M": "CV"}}` renames groups. Nothing is guessed silently:
+`c.suggest_groups()` (website: `/groups` with only `"data"`) proposes groups
+with the reason, for the user to confirm, and names that only number the
+spectra ("Spectrum 1", "Spot2") give no proposal. `c.by_group()` gives one
+collection per group.
+
+In plots: `color_by="group"` gives one colour and one legend entry per group
+(`labels` then name the groups); with `kind="mean"`, one mean per group;
+`stk.panels(c, by="group", kind="stack")` gives one panel per group, titled
+with its name and number of spectra. Spectra in no group show as "(no group)".
+On the website: `"color_by": "group"` next to `"data"`, or `"by": "group"`
+with `"data"` and `"kind"` for panels; the data carries `"groups"`.
+
+![Nine spectra in three groups: one colour per group, and one mean per group.](plotting/groups.png)
+
+*Nine spectra in three groups: one colour per group, and one mean per group.*
+
 ## Reference lines at zero
 
 {section(["zero_lines", "zero_line_style", "zero_line_width", "zero_line_color", "zero_line_alpha"])}
@@ -676,7 +741,7 @@ gives a warning; the website's answer has an `X-Warning` header naming it.
     if missing:                                                      # every setting must appear somewhere
         raise SystemExit(f"Settings not placed in any section of the reference: {sorted(missing)}")
     DOC.write_text("".join(parts), encoding="utf-8")
-    print(f"Wrote {DOC.relative_to(ROOT)} ({len(SETTINGS)} settings) and {len(PICTURE_LIST) + 3} pictures.")
+    print(f"Wrote {DOC.relative_to(ROOT)} ({len(SETTINGS)} settings) and {len(PICTURE_LIST) + 5} pictures.")
 
 
 if __name__ == "__main__":

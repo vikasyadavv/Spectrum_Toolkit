@@ -21,6 +21,12 @@ POST /figure        JSON {"data": ..., "kind": "lines", "style": "publication",
                     returns the figure as a file (png, tiff, jpg, pdf, svg, eps).
                     With "panels": [...] instead of "data", several plots in
                     one figure. A missing font is named in the "X-Warning" header.
+POST /groups        JSON {"data": ...}: proposes groups (which sample each
+                    spectrum is) from the names, for the user to confirm;
+                    with "groups" ({"CV": [0, 1, ...], ...}, "name", or one
+                    label per spectrum) or "pattern", sets them. Answers
+                    {"by", "groups" (one per spectrum), "counts", "message"};
+                    the page then sends "groups" inside the data.
 POST /style-check   JSON {"style": "publication" or {...settings...},
                     "settings": {...}}: checks a style (for example the
                     contents of a saved my_style.json) and returns every
@@ -31,7 +37,8 @@ Data in answers always has the same fields, in this order (one row of "Y"
 per spectrum; sizes first, like MATLAB's size())::
 
     {"n_spectra": 14, "n_points": 1424, "size_Y": [14, 1424], "size_x": [1424],
-     "x_range": [101.9, 1802.8], "names": ["Spectrum 1", ...], "x_unit": "", "y_unit": "",
+     "x_range": [101.9, 1802.8], "names": ["Spectrum 1", ...], "groups": ["CV", ...] or [],
+     "x_unit": "", "y_unit": "",
      "notes": [...what was assumed while reading...], "history": [...every step...],
      "x": [...], "Y": [[...], ...]}
 
@@ -145,9 +152,9 @@ def to_json(data: Spectrum | SpectrumCollection, numbers: bool = True) -> dict:
     (null): only the description, for a quick look at a big file.
     """
     if isinstance(data, Spectrum):
-        Y, names = data.y[None, :], [data.name]
+        Y, names, groups = data.y[None, :], [data.name], [data.group] if data.group else []
     else:
-        Y, names = data.Y, list(data.names)
+        Y, names, groups = data.Y, list(data.names), list(data.groups)
     notes = data.meta.get("load_notes") if isinstance(data.meta, dict) else None
     return {
         "n_spectra": int(Y.shape[0]),                            # rows of Y
@@ -156,6 +163,7 @@ def to_json(data: Spectrum | SpectrumCollection, numbers: bool = True) -> dict:
         "size_x": [int(data.x.size)],
         "x_range": [float(np.min(data.x)), float(np.max(data.x))] if data.x.size else None,
         "names": names,
+        "groups": groups,                                        # one per spectrum ("" = none); [] = no groups
         "x_unit": data.x_unit,
         "y_unit": data.y_unit,
         "notes": list(notes or []),                              # what was assumed while reading
@@ -175,7 +183,8 @@ def from_json(d: dict) -> SpectrumCollection:
     if not np.all(np.isfinite(Y)):
         raise ValueError("data contains missing values (null); remove those points first.")
     return SpectrumCollection(d["x"], Y, names=d.get("names") or (), x_unit=d.get("x_unit", ""),
-                              y_unit=d.get("y_unit", ""), history=tuple(d.get("history") or ()))
+                              y_unit=d.get("y_unit", ""), history=tuple(d.get("history") or ()),
+                              groups=tuple(d.get("groups") or ()))
 
 
 def _single_or_all(c: SpectrumCollection) -> Spectrum | SpectrumCollection:
@@ -386,8 +395,10 @@ def _color_mode(body: dict) -> str:
 
 
 # Plot arguments a request may give next to "data" (the rest goes in "settings").
-_PLOT_EXTRAS = {"region", "offset", "labels", "highlight", "emphasize", "peaks", "marks", "title", "xlabel",
-                "ylabel", "invert_x", "notes", "inset"}
+_PLOT_EXTRAS = {"region", "offset", "labels", "highlight", "emphasize", "color_by", "peaks", "marks", "title",
+                "xlabel", "ylabel", "invert_x", "notes", "inset"}
+# Arguments of a panel of kind "compare" (a before/after view): "after" is data like "data".
+_COMPARE_EXTRAS = {"index", "removed"}
 
 
 def _plot_extras(body: dict) -> dict:
@@ -409,6 +420,9 @@ def _panel_items(body: dict) -> list:
             raise ValueError(f'Panel {i + 1} must be a dict with "data".')
         entry = {"data": _single_or_all(from_json(panel["data"])), "kind": panel.get("kind", "lines"),
                  **_plot_extras(panel), **(panel.get("settings") or {})}
+        if "after" in panel:                                         # kind "compare": the data after the step
+            entry["after"] = _single_or_all(from_json(panel["after"]))
+        entry.update({k: panel[k] for k in _COMPARE_EXTRAS if k in panel})
         if "letter" in panel:
             entry["letter"] = panel["letter"]
         entries.append(entry)
@@ -420,7 +434,9 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     """Draw data (or several panels) and return the figure file.
 
     With "panels": [{"data": ..., "kind": ..., "settings": {...}, ...}, ...]
-    the figure has one panel per entry; "layout" ([rows, columns] or text
+    the figure has one panel per entry (kind "compare" takes "after", the
+    data after a step, and optional "index" and "removed"); with "data" and
+    "by": "group", one panel per group; "layout" ([rows, columns] or text
     such as "AA;BC"), "widths", "heights", "share_x", "share_y", "title"
     (over the whole figure), "xlabel" and "ylabel" (the shared labels) are
     optional.
@@ -441,14 +457,16 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     style = _style(body)
     with _FIGURE_LOCK, tempfile.TemporaryDirectory() as folder:
         try:
-            if "panels" in body:
-                entries = _panel_items(body)
-                axes = panels(entries, body.get("layout"), widths=body.get("widths"), heights=body.get("heights"),
+            if "panels" in body or "by" in body:
+                entries = _panel_items(body) if "panels" in body else _single_or_all(from_json(body.get("data")))
+                axes = panels(entries, body.get("layout"), by=body.get("by"),
+                              kind=body.get("kind") if "by" in body else None,
+                              widths=body.get("widths"), heights=body.get("heights"),
                               share_x=bool(body.get("share_x", False)), share_y=bool(body.get("share_y", False)),
                               title=body.get("title"), xlabel=body.get("xlabel"), ylabel=body.get("ylabel"),
                               style=style, **settings)
                 ax = axes[0]
-                own = [p.get("settings") or {} for p in body["panels"]]
+                own = [p.get("settings") or {} for p in body.get("panels") or [{}]]
             else:
                 data = _single_or_all(from_json(body.get("data")))
                 ax = plot(data, kind=body.get("kind", "lines"), style=style, **settings,
@@ -465,6 +483,30 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     if missing:                                                  # headers carry plain text only
         headers["X-Warning"] = _font_warning(missing).encode("ascii", "replace").decode()
     return Response(content, media_type=_TYPES[fmt], headers=headers)
+
+
+@app.post("/groups")
+def set_or_suggest_groups(body: dict = Body(..., examples=[{"data": _TINY, "groups": {"A": [0], "B": [1]}}])) -> dict:
+    """Propose or set which group (sample) each spectrum belongs to.
+
+    Without "groups" and "pattern": a proposal from the names, or none when
+    the names only number the spectra ("Spectrum 1", "Spot2"), with a message
+    to show the user. With "groups" (a dict of spectrum numbers or names per
+    group, "name", or a list with one label per spectrum), "pattern" (a
+    regular expression; the part in brackets is the group) and optional
+    "rename": sets them. The answer is always {"by", "groups", "counts",
+    "message"}; send "groups" inside the data afterwards (/process and
+    /figure keep and use them).
+    """
+    from .groups import _counts, set_groups, suggest_groups
+    data = from_json(body.get("data"))
+    if body.get("groups") is None and body.get("pattern") is None:
+        return _plain(suggest_groups(data))
+    done = set_groups(data, body.get("groups"), pattern=body.get("pattern"), rename=body.get("rename"))
+    labels = list(done.groups) or [""] * len(done)
+    counts = _counts(labels)
+    return {"by": "given", "groups": labels, "counts": counts,
+            "message": "Groups: " + ", ".join(f"{g} ({n})" for g, n in counts.items()) + "."}
 
 
 @app.post("/style-check")

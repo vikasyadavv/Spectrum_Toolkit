@@ -444,3 +444,64 @@ def test_panels_one_legend_shared_labels_and_colorbar_are_off_by_default():
     assert axes[0].collections[0].get_clim() == axes[1].collections[0].get_clim()
     axes = stk.panels(images, panel_colorbar="shared", color_limits=[0, 1])
     assert axes[1].collections[0].get_clim() == (0, 1)
+
+
+def grouped(rng):
+    """Six spectra in groups A, A, A, B, B and none."""
+    return peaks(rng, 6).set_groups(["A", "A", "A", "B", "B", ""])
+
+
+def test_color_by_group_lines_stack_and_mean():
+    c = grouped(np.random.default_rng(0))
+    for kind in ("lines", "stack"):
+        ax = c.plot(kind=kind, color_by="group")
+        colours = [matplotlib.colors.to_hex(l.get_color()) for l in ax.get_lines()]
+        assert len(set(colours[:3])) == 1 and colours[0] != colours[3] and colours[3] == colours[4]
+        assert [t.get_text() for t in ax.get_legend().get_texts()] == ["A", "B", "(no group)"]
+    ax = c.plot(kind="mean", color_by="group", labels=["first", "second", "rest"])
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["first (n=3)", "second (n=2)", "rest (n=1)"]
+    ax = c.plot(color_by="group", labels=["x", "y", "z"])
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["x", "y", "z"]
+    for kwargs, message in ((dict(color_by="name"), 'must be "group"'), (dict(kind="image", color_by="group"), "image"),
+                            (dict(color_by="group", labels=["x"]), "3 groups")):
+        with pytest.raises(ValueError, match=message):
+            c.plot(**kwargs)
+    with pytest.raises(ValueError, match="no groups yet"):
+        peaks(np.random.default_rng(0), 3).plot(color_by="group")
+
+
+def test_panels_one_per_group():
+    c = grouped(np.random.default_rng(0))
+    axes = stk.panels(c, by="group", kind="stack", layout=[1, 3])
+    assert [ax.get_title() for ax in axes] == ["A (3)", "B (2)", "(no group) (1)"]
+    assert all(len(ax.get_lines()) == n for ax, n in zip(axes, (3, 2, 1)))
+    with pytest.raises(ValueError, match='by must be "group"'):
+        stk.panels(c, by="name")
+
+
+def test_compare_panels_beside_other_panels():
+    rng = np.random.default_rng(0)
+    raw = peaks(rng, 3)
+    flat = raw.baseline()
+    axes = stk.panels([{"data": raw, "after": flat, "kind": "compare", "index": 1},
+                       {"data": flat, "after": flat.normalize("max"), "kind": "compare"},
+                       {"data": flat, "kind": "stack"}], layout=[3, 1], share_x=True)
+    fig = axes[0].figure
+    fig.canvas.draw()
+    strip = [a for ax in axes for a in ax.child_axes if a.get_ylabel() == "removed"]   # hangs under its view
+    assert len(strip) == 1                                                   # normalize: scale changes, no strip
+    assert axes[0].get_title() == "Spectrum 2: baseline (airpls)"            # short title in a panel
+    boxes = [ax.get_position() for ax in axes]
+    assert abs(boxes[0].x0 - boxes[2].x0) < 1e-3 and abs(boxes[0].x1 - boxes[2].x1) < 1e-3    # lined up
+    assert axes[0].get_xlim() == axes[2].get_xlim()                           # shared x
+    assert not any(t.get_text() for t in strip[0].get_xticklabels() if t.get_visible())   # a panel below
+    on_its_own = stk.compare(raw, flat, 1)                                    # unchanged: full settings
+    assert on_its_own.get_title().startswith("Spectrum 2: baseline: airpls, lam=")
+    one_legend = stk.panels([{"data": raw, "after": flat, "kind": "compare"}] * 2, layout=[1, 2],
+                            panel_legend="figure top")
+    assert one_legend[0].get_legend() is None and one_legend[0].figure.legends
+    for entry, message in (({"data": raw, "kind": "compare"}, 'needs "after"'),
+                           ({"data": raw, "after": flat}, 'for kind "compare"'),
+                           ({"data": raw, "after": flat, "kind": "compare", "peaks": 3}, "cannot be used")):
+        with pytest.raises(ValueError, match=message):
+            stk.panels([entry])

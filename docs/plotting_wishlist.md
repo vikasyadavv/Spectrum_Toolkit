@@ -7,8 +7,9 @@ labels, highlights, text on the plot)** and **7, items 1 to 14** (axis limits, l
 marks, line names, scale bar, mean band, image options, notes, inset, panels, tight, font warning), see
 `docs/plotting.md`. Item 12, panels a to f, built too (layout text such as "AA;BC", `widths` / `heights`,
 `panel_spacing_x` / `panel_spacing_y`, one figure legend, shared axis titles, one shared colour bar; all off by
-default). Item 15, the service part (`POST /style-check`), built too. Waiting in `docs/bucket_list.md`: panels g and h,
-saved styles on the website (15 A), and item 16.
+default). Item 15, the service part (`POST /style-check`), built too. Item 12 g (before/after views as panels) and h
+(groups stored with the data: set five ways, suggested but never guessed, colour / mean / panel per group) built
+too. Waiting in `docs/bucket_list.md`: saved styles on the website (15 A), item 16, and uploading several files at once.
 
 This list is **for discussion only**. No code has changed. Each item says:
 - what the code **already does** (with the setting name, so you can try it today);

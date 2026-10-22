@@ -146,6 +146,9 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] M13 `"settings": {"y_range": [0, null], "x_margin": 0},` (starts at zero; spectra touch the box left and right)
 - [ ] M14 panels a to f, in place of `"data"`: `"panels": [{"data": <data>, "kind": "mean"}, {"data": <data>, "region": [1550, 1650]}, {"data": <data>, "kind": "image"}], "layout": "AA;BC", "heights": [1.3, 1], "title": "All", "xlabel": "Raman shift",` with `"settings": {"panel_legend": "figure top", "panel_shared_labels": "x", "panel_spacing_y": 0.08},` (one legend under the title, one x title, the wide panel on top)
 - [ ] M15 two image panels with `"settings": {"panel_colorbar": "shared"},` (one colour bar on the right, same colours in both)
+- [ ] M17 `/groups` with `{"data": <data>}` → a proposal and a message (for "Spectrum 1"-type names: no proposal, "one group or several?"); with `"groups": {"A": [0, 1, 2], "B": [3, 4]}` → one label per spectrum
+- [ ] M18 data with `"groups": [...]` (from M17) in `/figure` with `"color_by": "group",` (one colour per group), with `"kind": "mean", "color_by": "group",` (one mean per group), and with `"by": "group", "kind": "stack",` (one panel per group)
+- [ ] M19 a compare panel: `/process` with a baseline step, then `"panels": [{"data": <before>, "after": <after>, "kind": "compare", "index": 0}, {"data": <after>}], "layout": [2, 1], "share_x": true` (the "removed" strip under the first panel, boxes lined up)
 - [ ] M16 `/style-check` with `{"style": "publication", "settings": {"line_width": 2}}` → `"style"` lists every setting and `"changed"` only the ones that differ; with `"style": "my_style.json"` → 422 (the service opens no files)
 
 ## Not reachable from the page yet

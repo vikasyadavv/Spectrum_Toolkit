@@ -190,7 +190,7 @@ def test_unexpected_error_is_explained(monkeypatch):
 
 def test_load_answer_always_has_the_same_fields():
     """Sizes first (like MATLAB size), the same keys for every file; summary_only leaves out the numbers."""
-    keys = ["n_spectra", "n_points", "size_Y", "size_x", "x_range", "names", "x_unit", "y_unit",
+    keys = ["n_spectra", "n_points", "size_Y", "size_x", "x_range", "names", "groups", "x_unit", "y_unit",
             "notes", "history", "x", "Y"]
     r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")}).json()
     assert list(r) == ["data", "separate", "message"] and list(r["data"]) == keys
@@ -286,3 +286,29 @@ def test_style_check_wrong_settings_and_no_files():
     for where in ("/style-check", "/figure"):                                  # a file path is never opened
         r = client.post(where, json={"data": sample(), "style": "/etc/anything.json"})
         assert r.status_code == 422 and "preset name" in r.json()["detail"]
+
+
+def test_groups_proposed_set_and_kept():
+    body = {"data": {**sample(4), "names": ["CV 1", "CV 2", "MB 1", "MB 2"]}}
+    r = client.post("/groups", json=body).json()
+    assert r["by"] == "name" and r["groups"] == ["CV", "CV", "MB", "MB"] and r["counts"] == {"CV": 2, "MB": 2}
+    r = client.post("/groups", json={"data": sample(3)}).json()                  # "s0", "s1" ... say nothing
+    assert r["groups"] is None and "one group or several" in r["message"]
+    r = client.post("/groups", json={"data": sample(3), "groups": {"A": [0, 1], "B": [2]}}).json()
+    assert r["groups"] == ["A", "A", "B"] and r["by"] == "given"
+    r = client.post("/groups", json={"data": sample(3), "groups": {"A": [0], "B": [0]}})
+    assert r.status_code == 422 and "two groups" in r.json()["detail"]
+    data = {**sample(3), "groups": ["A", "A", "B"]}                             # the page sends them in the data
+    done = client.post("/process", json={"data": data, "recipe": {"steps": [{"step": "baseline"}]}}).json()
+    assert done["data"]["groups"] == ["A", "A", "B"]
+
+
+def test_figure_color_by_panels_by_group_and_compare():
+    data = {**sample(3), "groups": ["A", "A", "B"]}
+    assert client.post("/figure", json={"data": data, "kind": "mean", "color_by": "group"}).status_code == 200
+    assert client.post("/figure", json={"data": data, "by": "group", "kind": "stack"}).status_code == 200
+    after = client.post("/process", json={"data": data, "recipe": {"steps": [{"step": "baseline"}]}}).json()["data"]
+    body = {"panels": [{"data": data, "after": after, "kind": "compare", "index": 2}, {"data": after}], "layout": [2, 1]}
+    assert client.post("/figure", json=body).status_code == 200
+    r = client.post("/figure", json={"data": sample(3), "color_by": "group"})
+    assert r.status_code == 422 and "no groups yet" in r.json()["detail"]

@@ -113,6 +113,7 @@ def _pick(c: SpectrumCollection, rows: list[int], step: str, keys: Sequence) -> 
         Y=c.Y[rows],
         names=tuple(c.names[r] for r in rows),
         positions=None if c.positions is None else c.positions[rows],   # map coordinates follow their spectra
+        groups=tuple(c.groups[r] for r in rows) if c.groups else (),    # so do groups
         history=c.history + ({"step": step, "spectra": [c.names[r] for r in rows] if step == "select" else list(keys)},),
     )
 
@@ -363,7 +364,7 @@ def _unique_names(pairs: list[tuple[Spectrum, str]]) -> list[str]:
 
 
 def combine(*items: Any, interpolate: bool | str = False, reference: int | str | None = None,
-            min_overlap: float = 0.9, verbose: bool = True) -> SpectrumCollection:
+            min_overlap: float = 0.9, groups: Any = None, verbose: bool = True) -> SpectrumCollection:
     """Put spectra from several files (or objects) into one collection on one x axis.
 
     Three situations are handled:
@@ -390,6 +391,9 @@ def combine(*items: Any, interpolate: bool | str = False, reference: int | str |
     min_overlap : case 3 is refused if any spectrum has less than this share
         of its x range inside the common range (default 90 %), because then
         the axes are not "close" and much data would be lost.
+    groups : set the groups of the result, as in ``set_groups``; "file" gives
+        one group per file, e.g. combine("CV.txt", "MB.txt", groups="file").
+        Default: groups the inputs already had are kept.
     verbose : print what was done.
     """
     if len(items) == 1 and isinstance(items[0], (list, tuple)):
@@ -459,10 +463,15 @@ def combine(*items: Any, interpolate: bool | str = False, reference: int | str |
         y_unit=sorted(y_units)[0] if len(y_units) == 1 else "",
         meta={"combine_notes": notes, "axis_report": report,
               "sources": [str(s.meta.get("source", "")) for s, _ in pairs]},
+        groups=tuple(s.group for s, _ in pairs),                       # groups the inputs had stay
+
         history=({"step": "combine", "case": report.case,
                   "interpolation": ("linear" if interpolate is True else interpolate) if report.case == "different" else None,
                   "reference": ref.name, "n_spectra": len(names)},),
     )
+    if groups is not None:
+        from .groups import set_groups
+        result = set_groups(result, groups)
     if verbose:
         print("\n".join([f"Combined: {len(result)} spectra, {result.n_points} points each, "
                          f"x {x[0]:.6g} to {x[-1]:.6g}"] + [f"  - {n}" for n in notes]))

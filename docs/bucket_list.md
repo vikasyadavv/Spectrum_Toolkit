@@ -2,10 +2,9 @@
 
 Ideas agreed to come back to later, so they are not forgotten. Nothing here is built.
 
-## Plotting
+## Data
 
-- **Panels, kind "compare"** (wish list 7, item 12 g): a before/after view as one panel of `stk.panels`.
-- **Panels, one per group** (wish list 7, item 12 h): one panel per sample from one data set, e.g. by the names CV / MB / RhB (`"group_by": "name"`).
+- **Several files at once** (raised while discussing groups, 2026-10-22): upload several files in one go on the website, process them in parallel, and give each file its own group by default (the user can rename it). Groups by file already work in Python (`stk.combine(..., groups="file")`); the website needs a several-file upload and `/groups` with `"groups": "file"` for it.
 
 ## Website (after the plotting is final)
 

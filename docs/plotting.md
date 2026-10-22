@@ -1004,6 +1004,55 @@ else the 1st and 99th percentile of all of them) and one colour bar.
 
 *Two image panels with one colour bar and one colour scale, and more space between the columns.*
 
+**Before/after views as panels (kind "compare").** A panel can be the view
+`stk.compare` draws: `{"data": before, "after": after, "kind": "compare"}`
+with optional `"index"` (which spectrum, by number or name), `"region"`,
+`"removed"` and `"labels"`, as in `stk.compare`. The "removed" strip hangs
+under its panel, so the boxes of a column still line up and `share_x` works
+across ordinary and compare panels. The default title is the step and its
+method, e.g. "baseline (airpls)" (`stk.compare` on its own figure also lists
+the settings). On the website the panel is the same, with `"after"` as data.
+
+```python
+raw = stk.load("CV10-4M.xlsx"); clean = raw.despike()
+stk.panels([{"data": raw, "after": clean, "kind": "compare", "index": 3, "region": [1550, 1750]},
+            {"data": clean, "after": clean.baseline(), "kind": "compare", "index": 3}], layout=[1, 2])
+```
+
+![Two before/after panels: the baseline removed (with what was removed under it), then normalized (own scale on the right).](plotting/panels_compare.png)
+
+*Two before/after panels: the baseline removed (with what was removed under it), then normalized (own scale on the right).*
+
+## Groups (which sample each spectrum is)
+
+Groups are stored with the data, one label per spectrum (`c.groups`), and
+follow the spectra through every step. Set them in one of five ways:
+
+| Way | Python | Website (`/groups`) |
+|---|---|---|
+| spectrum numbers or names | `c.set_groups({"CV": range(0, 14), "MB": range(14, 19)})` | `"groups": {"CV": [0, 1, ...], "MB": [...]}` |
+| one label per spectrum | `c.set_groups(["CV", "CV", "MB", ...])` | `"groups": ["CV", "CV", "MB", ...]` |
+| from the names | `c.set_groups("name")`: "CV 1", "CV_2" → CV | `"groups": "name"` |
+| your own rule | `c.set_groups(pattern=r"^(\w+)_")`: the part in brackets | `"pattern": "^(\\w+)_"` |
+| the file | `stk.combine("CV.txt", "MB.txt", groups="file")` | (several files: later) |
+
+`rename={"CV10-4M": "CV"}` renames groups. Nothing is guessed silently:
+`c.suggest_groups()` (website: `/groups` with only `"data"`) proposes groups
+with the reason, for the user to confirm, and names that only number the
+spectra ("Spectrum 1", "Spot2") give no proposal. `c.by_group()` gives one
+collection per group.
+
+In plots: `color_by="group"` gives one colour and one legend entry per group
+(`labels` then name the groups); with `kind="mean"`, one mean per group;
+`stk.panels(c, by="group", kind="stack")` gives one panel per group, titled
+with its name and number of spectra. Spectra in no group show as "(no group)".
+On the website: `"color_by": "group"` next to `"data"`, or `"by": "group"`
+with `"data"` and `"kind"` for panels; the data carries `"groups"`.
+
+![Nine spectra in three groups: one colour per group, and one mean per group.](plotting/groups.png)
+
+*Nine spectra in three groups: one colour per group, and one mean per group.*
+
 ## Reference lines at zero
 
 | Setting | Default | What it does |
