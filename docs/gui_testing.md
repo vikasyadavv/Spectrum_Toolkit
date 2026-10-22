@@ -144,6 +144,9 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] M11 `"settings": {"tight": false},` → the file keeps the exact figure size (white space kept)
 - [ ] M12 `"settings": {"y_range": [0, 0.3]}, "peaks": 4,` (tall bands cut off, their labels at the top of the box)
 - [ ] M13 `"settings": {"y_range": [0, null], "x_margin": 0},` (starts at zero; spectra touch the box left and right)
+- [ ] M14 panels a to f, in place of `"data"`: `"panels": [{"data": <data>, "kind": "mean"}, {"data": <data>, "region": [1550, 1650]}, {"data": <data>, "kind": "image"}], "layout": "AA;BC", "heights": [1.3, 1], "title": "All", "xlabel": "Raman shift",` with `"settings": {"panel_legend": "figure top", "panel_shared_labels": "x", "panel_spacing_y": 0.08},` (one legend under the title, one x title, the wide panel on top)
+- [ ] M15 two image panels with `"settings": {"panel_colorbar": "shared"},` (one colour bar on the right, same colours in both)
+- [ ] M16 `/style-check` with `{"style": "publication", "settings": {"line_width": 2}}` → `"style"` lists every setting and `"changed"` only the ones that differ; with `"style": "my_style.json"` → 422 (the service opens no files)
 
 ## Not reachable from the page yet
 
@@ -152,7 +155,7 @@ the website needs and they get added:
 
 - combining several files into one set; selecting or dropping spectra by name; resample
 - before/after view of one step (`stk.compare`), grouped scatter (`stk.scatter`)
-- saving a recipe or a style to a file (the website would keep these itself)
+- saving a recipe to a file (the website would keep it itself; a style is checked by `/style-check`)
 
 ## Ideas noted during testing (for later)
 

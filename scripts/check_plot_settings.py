@@ -383,7 +383,8 @@ def main() -> int:
     for p in problems:
         print("FILE     ", p)
     # A wrong value of each kind must give a clear error naming the setting.
-    wrong = {"top_tick_length": "long", "left_tick_alpha": 3, "xlabel_color": "notacolour", "right_box": "yes",
+    wrong = {"top_tick_length": "long", "line_width": -1, "font_size": -2, "right_box_width": -0.5,
+             "legend_line_length": -1, "line_name_size": -3, "left_tick_alpha": 3, "xlabel_color": "notacolour", "right_box": "yes",
              "title_weight": "heavy", "bottom_tick_direction": "up", "legend_order": "sideways",
              "box_style": "~", "legend_box": "maybe", "line_format": "o-q", "line_style": "dashed",
              "marker": "smiley", "marker_every": 0, "line_alpha": [1, 2], "line_color": ["red", "nocolour"],

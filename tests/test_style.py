@@ -250,6 +250,11 @@ def test_colours_in_every_form():
     ({"xlabel_weight": "heavy"}, '"normal" or "bold"'),
     ({"legend_order": "up"}, "legend_order must be one of"),
     ({"x_tick_length": "long"}, "must be a number"),
+    ({"line_width": -1}, "line_width must be 0 or more"),
+    ({"line_width": [1, -2]}, "line_width must be 0 or more"),
+    ({"top_tick_length": -2}, "top_tick_length must be 0 or more"),
+    ({"font_size": -3}, "font_size must be 0 or more"),
+    ({"legend_box_width": -1}, "legend_box_width must be 0 or more"),
 ])
 def test_wrong_values_are_explained(wrong, message):
     with pytest.raises(ValueError, match=message):

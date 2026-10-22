@@ -252,3 +252,37 @@ def test_figure_panels_layout_text_and_shared_parts():
     assert client.post("/figure", json=body).status_code == 200
     r = client.post("/figure", json={**body, "layout": "AB;BA"})
     assert r.status_code == 422 and "rectangle" in r.json()["detail"]
+
+
+def test_style_check_answers_every_setting_and_what_changed(tmp_path):
+    from spectrum_toolkit import style
+    r = client.post("/style-check", json={"style": "publication", "settings": {"line_width": 2, "font": "No Such Font"}})
+    assert r.status_code == 200
+    answer = r.json()
+    assert set(answer["style"]) == set(style.SETTINGS) | {"preset"}           # every setting, ready to save
+    assert answer["changed"]["line_width"] == 2 and answer["changed"]["box_width"] == 1.0   # from the preset
+    assert "x_range" not in answer["changed"]
+    assert "No Such Font" in answer["warnings"][0]
+    saved = style.save_style({"preset": "matlab", "grid": False}, tmp_path / "mine")  # a file the user saved
+    again = client.post("/style-check", json={"style": json.loads(saved.read_text())}).json()
+    assert again["changed"]["grid"] is False and again["changed"]["font"] == "Arial"   # from the matlab preset
+    assert client.post("/style-check", json={}).json()["changed"] == {}         # nothing asked: the defaults
+    assert client.post("/style-check", json={"style": "matplotlib"}).json()["style"] == {"preset": "matplotlib"}
+
+
+def test_style_check_style_draws_the_same_figure():
+    asked = {"style": "matlab", "settings": {"line_width": 2.5, "legend_box": True}}
+    full = client.post("/style-check", json=asked).json()["style"]
+    first = client.post("/figure", json={"data": sample(), **asked, "dpi": 50}).content
+    second = client.post("/figure", json={"data": sample(), "style": full, "dpi": 50}).content
+    assert first == second
+
+
+def test_style_check_wrong_settings_and_no_files():
+    r = client.post("/style-check", json={"settings": {"line_width": "thick"}})
+    assert r.status_code == 422 and "line_width" in r.json()["detail"]
+    r = client.post("/style-check", json={"style": {"nonsense": 1}})
+    assert r.status_code == 422 and "nonsense" in r.json()["detail"]
+    for where in ("/style-check", "/figure"):                                  # a file path is never opened
+        r = client.post(where, json={"data": sample(), "style": "/etc/anything.json"})
+        assert r.status_code == 422 and "preset name" in r.json()["detail"]

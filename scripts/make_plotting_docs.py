@@ -243,6 +243,18 @@ stk.save_style("matlab", "my_style", box_width=2)   # reuse with style="my_style
 `/options` lists every setting with its default and meaning, so the website
 can build its controls from it.
 
+**Saved styles on the website (`/style-check`):** a style file saved with
+`stk.save_style` (or by the website) is sent as its contents, never as a file
+name: the service opens no files. `"style"` is a preset name or a dict:
+```json
+{{"style": {{"preset": "publication", "line_width": 1.5}}, "settings": {{"legend_box": true}}}}
+```
+The answer has `"style"` (every setting, ready to save as `my_style.json` and to
+load again on the website or in Python with `style="my_style.json"`),
+`"changed"` (only the settings that differ from the defaults) and `"warnings"`
+(fonts not installed on the server). A wrong setting gives the same message as
+in Python.
+
 A wrong name or value is an error that says what is allowed, for example
 `tick_alpha is a transparency from 0 (invisible) to 1 (solid); got 2.`
 

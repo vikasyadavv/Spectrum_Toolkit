@@ -609,6 +609,8 @@ def _check_one(name: str, value) -> None:
     if name.endswith(("_length", "_width", "_size", "_pad", "_rotation", "_spacing", "_scale")) \
             and name != "size" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
         raise ValueError(f"{name} must be a number; got {value!r}.")
+    if name.endswith(("_length", "_width", "_size")) and name != "size" and value < 0:   # 0 hides, below 0 means nothing
+        raise ValueError(f"{name} must be 0 or more; got {value!r}.")
     if (name in ("legend_box", "legend_shadow", "legend_box_round", "minor_ticks", "fill", "peak_line", "x_log",
                  "y_log", "cut_marks", "line_names", "colorbar", "inset_lines", "panel_letters", "tight")
             or name.endswith(("_italic", "_ticks", "_tick_labels", "_box", "minor_ticks"))) \

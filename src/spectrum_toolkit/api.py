@@ -21,6 +21,11 @@ POST /figure        JSON {"data": ..., "kind": "lines", "style": "publication",
                     returns the figure as a file (png, tiff, jpg, pdf, svg, eps).
                     With "panels": [...] instead of "data", several plots in
                     one figure. A missing font is named in the "X-Warning" header.
+POST /style-check   JSON {"style": "publication" or {...settings...},
+                    "settings": {...}}: checks a style (for example the
+                    contents of a saved my_style.json) and returns every
+                    setting, the ones that differ from the defaults, and
+                    warnings (fonts not installed). A wrong setting gives 422.
 
 Data in answers always has the same fields, in this order (one row of "Y"
 per spectrum; sizes first, like MATLAB's size())::
@@ -36,6 +41,9 @@ Requests need only "x" and "Y" (plus optional "names", units, "history").
 
 Mistakes in a request (unknown method, wrong setting, unreadable file) give
 HTTP 422 with the same plain-English message the library gives.
+
+"style" in a request is a preset name or a dict of settings; the service
+never opens a file named in a request (a style file is sent as its contents).
 
 Run locally::
 
@@ -242,6 +250,8 @@ _TINY = {"x": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109],
          "Y": [[1, 2, 4, 9, 15, 9, 4, 2, 1, 1], [1, 1, 3, 7, 12, 8, 3, 2, 1, 1]],
          "names": ["a", "b"], "x_unit": "cm-1", "y_unit": "counts"}
 EXAMPLE_PROCESS = {"data": _TINY, "recipe": {"steps": [{"step": "normalize", "method": "max"}]}, "all_steps": False}
+EXAMPLE_STYLE = {"style": {"preset": "publication", "line_width": 1.5, "font": "Arial"},
+                 "settings": {"legend_box": True}}
 EXAMPLE_FIGURE = {"data": _TINY, "kind": "lines", "style": "publication", "settings": {"line_width": 1.5},
                   "title": "Example", "format": "png", "dpi": 300, "name": "example"}
 
@@ -345,6 +355,27 @@ _TYPES = {"png": "image/png", "tiff": "image/tiff", "jpg": "image/jpeg", "pdf": 
           "svg": "image/svg+xml", "eps": "application/postscript"}
 
 
+def _style(body: dict):
+    """The request's style: None, a preset name or a dict of settings.
+
+    The library also takes a path to a .json file; the service does not, so a
+    request can never make it open a file on the server.
+    """
+    from .style import PRESETS
+    style = body.get("style")
+    if style is None or isinstance(style, dict) or (isinstance(style, str) and style in PRESETS):
+        return style
+    raise ValueError(f'"style" must be a preset name ({", ".join(PRESETS)}) or a dict of settings, '
+                     f"for example the contents of a style file saved with save_style; got {style!r}.")
+
+
+def _font_warning(missing: list) -> str | None:
+    """The plain-text warning for fonts that are not installed on the server (None when all are)."""
+    if not missing:
+        return None
+    return f"Font(s) not installed on the server, another font was used: {', '.join(missing)}"
+
+
 def _color_mode(body: dict) -> str:
     """RGB or CMYK for the saved file: "color_mode" (or its old name "color"), else the settings', else rgb."""
     mode = body.get("color_mode") or body.get("color") or (body.get("settings") or {}).get("color_mode") or "rgb"
@@ -407,6 +438,7 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     if fmt not in _TYPES:
         raise ValueError(f"Unknown format {fmt!r}. Choose one of: {', '.join(_TYPES)}.")
     settings = body.get("settings") or {}
+    style = _style(body)
     with _FIGURE_LOCK, tempfile.TemporaryDirectory() as folder:
         try:
             if "panels" in body:
@@ -414,12 +446,12 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
                 axes = panels(entries, body.get("layout"), widths=body.get("widths"), heights=body.get("heights"),
                               share_x=bool(body.get("share_x", False)), share_y=bool(body.get("share_y", False)),
                               title=body.get("title"), xlabel=body.get("xlabel"), ylabel=body.get("ylabel"),
-                              style=body.get("style"), **settings)
+                              style=style, **settings)
                 ax = axes[0]
                 own = [p.get("settings") or {} for p in body["panels"]]
             else:
                 data = _single_or_all(from_json(body.get("data")))
-                ax = plot(data, kind=body.get("kind", "lines"), style=body.get("style"), **settings,
+                ax = plot(data, kind=body.get("kind", "lines"), style=style, **settings,
                           **_plot_extras(body))
                 own = [{}]
             path = export(ax, Path(folder) / "figure", format=fmt, dpi=int(body.get("dpi", 300)),
@@ -427,10 +459,38 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
             content = path.read_bytes()
         finally:
             plt.close("all")
-    missing = sorted({f for extra in own for f in missing_fonts(get_style(body.get("style"), **{**settings, **extra}))})
+    missing = sorted({f for extra in own for f in missing_fonts(get_style(style, **{**settings, **extra}))})
     name = re.sub(r"[^A-Za-z0-9._-]", "_", str(body.get("name", "figure")))[:80] or "figure"
     headers = {"Content-Disposition": f'attachment; filename="{name}.{fmt}"'}
     if missing:                                                  # headers carry plain text only
-        text = f"Font(s) not installed on the server, another font was used: {', '.join(missing)}"
-        headers["X-Warning"] = text.encode("ascii", "replace").decode()
+        headers["X-Warning"] = _font_warning(missing).encode("ascii", "replace").decode()
     return Response(content, media_type=_TYPES[fmt], headers=headers)
+
+
+@app.post("/style-check")
+def style_check(body: dict = Body(..., examples=[EXAMPLE_STYLE])) -> dict:
+    """Check a style and return it in full, before it is used or saved.
+
+    "style" is a preset name or a dict of settings (for example the contents
+    of a style file the user saved earlier); "settings" are changes on top.
+    The answer:
+      "style"    every setting, as save_style writes it: ready to save as
+                 my_style.json and load again here or in Python
+                 (stk.get_style("my_style.json")).
+      "changed"  only the settings that differ from the defaults, to show
+                 what the style contains.
+      "warnings" fonts the style asks for that are not installed on the server.
+    A wrong setting name or value answers 422 with a message naming it.
+    """
+    from .style import DEFAULTS, get_style, missing_fonts
+    settings = body.get("settings") or {}
+    if not isinstance(settings, dict):
+        raise ValueError('"settings" must be a dict of settings, e.g. {"line_width": 1.5}.')
+    style = _style(body)
+    full = get_style(style, **settings)
+    if full is None:                                             # "matplotlib": matplotlib's own look, nothing set
+        return {"style": {"preset": "matplotlib"}, "changed": {}, "warnings": []}
+    changed = {k: v for k, v in full.items() if _plain(v) != _plain(DEFAULTS[k])}
+    warning = _font_warning(missing_fonts(full))
+    return {"style": _plain({"preset": "clean", **full}), "changed": _plain(changed),
+            "warnings": [warning] if warning else []}
