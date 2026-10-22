@@ -383,3 +383,64 @@ def test_axis_ranges_and_margins():
     for bad in ({"y_range": [1, 1]}, {"x_range": 5}, {"y_margin": 2}):
         with pytest.raises(ValueError):
             c.plot(**bad)
+
+
+def test_panels_text_layout_and_sizes():
+    c = _bands()
+    axes = stk.panels([c, c, c], layout="AA;BC", heights=[2, 1], widths=[1, 3])
+    fig = axes[0].figure
+    fig.canvas.draw()
+    top, left, right = (ax.get_position() for ax in axes)
+    assert top.width > 2 * left.width                                  # A spans both columns
+    assert top.height > 1.5 * left.height                              # heights [2, 1]
+    assert right.width > 2 * left.width                                # widths [1, 3]
+    axes = stk.panels([c, c, c], layout="AB;AC", share_x=True)          # tall panel on the left
+    axes[0].figure.canvas.draw()
+    labelled = [any(t.get_visible() and t.get_text() for t in ax.get_xticklabels()) for ax in axes]
+    assert labelled == [True, False, True]                             # B has C under it; A has nothing under it
+    axes = stk.panels([c, c], layout="A.;.B")
+    assert len(axes[0].figure.axes) == 2
+    for bad, match in (("AB;C", "same length"), ("AB;BA", "rectangle"), ("A;B", "panels"), (5, "layout")):
+        with pytest.raises(ValueError, match=match):
+            stk.panels([c, c, c], layout=bad)
+    with pytest.raises(ValueError, match="widths"):
+        stk.panels([c, c], layout=[1, 2], widths=[1])
+    with pytest.raises(ValueError, match="heights"):
+        stk.panels([c, c], layout=[2, 1], heights=[1, -1])
+
+
+def test_panels_spacing_x_and_y_apart():
+    c = _bands()
+    gaps = {}
+    for name, kw in (("wide x", dict(panel_spacing_x=0.2)), ("wide y", dict(panel_spacing_y=0.2)), ("same", {})):
+        axes = stk.panels([c] * 4, layout=[2, 2], **kw)
+        axes[0].figure.canvas.draw()
+        a, b, cc = (ax.get_position() for ax in axes[:3])
+        gaps[name] = (b.x0 - a.x1, a.y0 - cc.y1)                        # between columns, between rows
+    assert gaps["wide x"][0] > gaps["same"][0] and gaps["wide x"][1] == pytest.approx(gaps["same"][1], abs=0.01)
+    assert gaps["wide y"][1] > gaps["same"][1] and gaps["wide y"][0] == pytest.approx(gaps["same"][0], abs=0.01)
+
+
+def test_panels_one_legend_shared_labels_and_colorbar_are_off_by_default():
+    c = _bands()
+    axes = stk.panels([c, c])
+    fig = axes[0].figure
+    assert all(ax.get_legend() is not None for ax in axes) and not fig.legends
+    assert all(ax.get_xlabel() for ax in axes)
+    axes = stk.panels([c, c], panel_legend="figure top", panel_shared_labels=True, ylabel="I", title="T")
+    fig = axes[0].figure
+    assert all(ax.get_legend() is None for ax in axes) and len(fig.legends) == 1
+    assert [t.get_text() for t in fig.legends[0].get_texts()] == list(c.names)    # each name once
+    assert fig.get_supylabel() == "I" and fig.get_supxlabel() and not any(ax.get_xlabel() for ax in axes)
+    fig.canvas.draw()
+    r = fig.canvas.get_renderer()
+    assert fig.legends[0].get_window_extent(r).y1 <= fig._suptitle.get_window_extent(r).y0   # under the title
+    axes = stk.panels([c, c], panel_shared_labels="x")
+    assert axes[0].get_ylabel() and not axes[0].get_xlabel()
+    images = [{"data": c, "kind": "image"}, {"data": c, "kind": "image"}]
+    assert len(stk.panels(images)[0].figure.axes) == 4                  # two panels, two colour bars
+    axes = stk.panels(images + [c], panel_colorbar="shared")
+    assert len(axes[0].figure.axes) == 4                                 # three panels, one colour bar
+    assert axes[0].collections[0].get_clim() == axes[1].collections[0].get_clim()
+    axes = stk.panels(images, panel_colorbar="shared", color_limits=[0, 1])
+    assert axes[1].collections[0].get_clim() == (0, 1)

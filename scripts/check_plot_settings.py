@@ -81,7 +81,8 @@ def changed_value(name: str, current):
         "colorbar_ticks_at": [0, 0.5], "colorbar_length": 0.5, "colorbar_fraction": 0.3, "image_y": "name",
         "note_arrow_head": "-|>", "inset_position": "lower left", "inset_scale": 0.6,
         "panel_letter_format": "{}.", "panel_letter_case": "upper", "panel_letter_position": "inside",
-        "panel_spacing": 0.2, "x_range": [600, 1500], "y_range": [None, 0.8],
+        "panel_spacing": 0.2, "x_range": [600, 1500], "y_range": [None, 0.8], "panel_spacing_x": 0.2,
+        "panel_spacing_y": 0.2, "panel_legend": "figure top", "panel_colorbar": "shared",
     }
     base = name
     for prefix in SIDES + ("x", "y"):                       # top_tick_length -> tick_length
@@ -132,7 +133,7 @@ def picture(settings: dict, kind: str = "lines") -> np.ndarray:
     """Draw, save as png in memory and return the pixels.
 
     Two keys are not settings: "_cut" draws the data with a range cut out,
-    "_panels" draws two panels with stk.panels.
+    "_panels" draws three panels with stk.panels ("image": two image panels).
     """
     settings = {**PLOT_ARGUMENTS, **settings}
     cut, as_panels = settings.pop("_cut", False), settings.pop("_panels", False)
@@ -140,7 +141,11 @@ def picture(settings: dict, kind: str = "lines") -> np.ndarray:
     data = data.cut(1250, 1300) if cut else data
     if as_panels:
         arguments = {k: settings.pop(k) for k in list(settings) if k in PLOT_ARGUMENTS}
-        ax = stk.panels([{"data": data, **arguments, **TEXT}, data], **settings)[0]
+        if as_panels == "image":                                    # image panels (for the colour bar)
+            items = [{"data": data, "kind": "image"}, {"data": data, "kind": "image"}]
+        else:
+            items = [{"data": data, **arguments, **TEXT}, data, data]
+        ax = stk.panels(items, layout=[2, 2], **settings)[0]
     else:
         ax = stk.plot(data, kind=kind, **TEXT, **settings)
     buffer = io.BytesIO()
@@ -219,7 +224,7 @@ def context_for(name: str) -> dict:
     if name.startswith("inset_"):
         ctx["inset"] = [950, 1050]
     if name.startswith("panel_"):
-        ctx["_panels"] = True
+        ctx["_panels"] = "image" if name == "panel_colorbar" else True
     if name == "label_overlap":
         ctx["marks"] = {1000: "AAAA", 1004: "BBBB"}            # two labels on top of each other
     return ctx
@@ -390,7 +395,8 @@ def main() -> int:
              "top_axis_laser": 0, "inset_scale": 2, "color_limits": 5, "colorbar_length": 0,
              "panel_letter_format": "x", "panel_spacing": 0.9, "mean_band": "var", "scale_bar": -1,
              "image_y": "letter", "note_arrow_head": "=>", "line_name_color": "nocolour", "x_range": [1, 2, 3], "y_range": [1, 1],
-             "x_margin": -0.1}
+             "x_margin": -0.1, "panel_legend": "top", "panel_shared_labels": "z",
+             "panel_colorbar": "one", "panel_spacing_y": "wide"}
     for name, value in wrong.items():
         try:
             get_style("clean", **{name: value})

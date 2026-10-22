@@ -3,7 +3,7 @@
 Everything a figure can show and every setting that changes how it looks.
 This file is written by `scripts/make_plotting_docs.py` from the settings in
 `src/spectrum_toolkit/style.py`, so it always lists every setting
-(384 today). Edit the script, not this file.
+(389 today). Edit the script, not this file.
 
 ## How to use settings
 
@@ -954,11 +954,43 @@ On the website: `{"panels": [{"data": ..., "kind": "stack", "settings": {...}}, 
 | `panel_letter_alpha` | 1.0 | letter transparency, 0 to 1 |
 | `panel_letter_italic` | false | letters in italics: true or false |
 | `panel_letter_font` | *(not set)* | letter font; None = font |
-| `panel_spacing` | 0.02 | extra space between panels, as a fraction of the figure (0 = only the room their labels need) |
 
 ![Four panels: lines, stacked with peak labels, mean, and image.](plotting/panels.png)
 
 *Four panels: lines, stacked with peak labels, mean, and image.*
+
+**Layout and sizes.** `layout` can also be text: rows split by `;`, one
+letter per panel (in the order of the entries), the same letter in several
+places for a panel across them, and `.` for an empty place: `"AA;BC"` is one
+wide panel over two, `"AB;AC"` one tall panel beside two. `widths=[2, 1]`
+and `heights=[1.3, 1]` give columns and rows their relative sizes (default all
+equal). On the website: `"layout": "AA;BC", "widths": [2, 1]`.
+
+**Shared parts.** Each of these is off by default, so a figure looks as
+before unless you turn it on: `panel_legend` gives one legend for the whole
+figure (each name once, so it suits panels that show the same spectra; the
+legend settings still apply; on top it goes under the figure title); `panel_shared_labels` gives one x and/or y label for the
+whole figure, with the text of `xlabel` / `ylabel` given to `panels`, else the
+first panel's, styled by the `xlabel_...` / `ylabel_...` settings;
+`panel_colorbar` gives all image panels one colour scale (`color_limits`,
+else the 1st and 99th percentile of all of them) and one colour bar.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `panel_spacing` | 0.02 | extra space between panels, as a fraction of the figure (0 = only the room their labels need) |
+| `panel_spacing_x` | *(not set)* | extra space between columns of panels; None = panel_spacing |
+| `panel_spacing_y` | *(not set)* | extra space between rows of panels; None = panel_spacing |
+| `panel_legend` | "each" | "each" (a legend in each panel, as set by legend) or one legend for the whole figure: "figure top", "figure bottom" or "figure right" |
+| `panel_shared_labels` | false | one x label and one y label for the whole figure instead of one per panel: true, false, "x" or "y" (only that axis) |
+| `panel_colorbar` | "each" | "each" (every image panel has its own colour bar and colour scale) or "shared" (one colour bar and one colour scale for all image panels) |
+
+![The full range over two zooms (layout "AA;BC", heights [1.3, 1]), one legend on top and one y label.](plotting/panels_layout.png)
+
+*The full range over two zooms (layout "AA;BC", heights [1.3, 1]), one legend on top and one y label.*
+
+![Two image panels with one colour bar and one colour scale, and more space between the columns.](plotting/panels_colorbar.png)
+
+*Two image panels with one colour bar and one colour scale, and more space between the columns.*
 
 ## Reference lines at zero
 

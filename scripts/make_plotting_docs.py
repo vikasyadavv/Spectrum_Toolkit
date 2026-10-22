@@ -133,6 +133,16 @@ def make_pictures() -> None:
                        {"data": data, "kind": "image"}], layout=[2, 2], size=(12, 7))
     stk.export(axes[0], PICTURES / "panels.png", dpi=90)
     plt.close("all")
+    # panels: text layout, sizes, one legend and shared labels; then one colour bar for two images
+    axes = stk.panels([data, {"data": data, "region": [880, 950]}, {"data": data, "region": [1550, 1650]}],
+                      layout="AA;BC", heights=[1.3, 1], panel_legend="figure top", panel_shared_labels="y",
+                      size=(12, 6))
+    stk.export(axes[0], PICTURES / "panels_layout.png", dpi=90)
+    half = SpectrumCollection(data.x, data.Y * 0.5, names=data.names, x_unit=data.x_unit, y_unit=data.y_unit)
+    axes = stk.panels([{"data": data, "kind": "image", "title": "full"}, {"data": half, "kind": "image", "title": "half"}],
+                      layout=[1, 2], panel_colorbar="shared", panel_spacing_x=0.06, size=(12, 7))
+    stk.export(axes[0], PICTURES / "panels_colorbar.png", dpi=90)
+    plt.close("all")
 
 
 # ------------------------------------------------------------------ text
@@ -606,11 +616,38 @@ On the website: `{{"panels": [{{"data": ..., "kind": "stack", "settings": {{...}
 
 {section(["panel_letters", "panel_letter_format", "panel_letter_case", "panel_letter_position",
           "panel_letter_size", "panel_letter_weight", "panel_letter_color", "panel_letter_alpha",
-          "panel_letter_italic", "panel_letter_font", "panel_spacing"])}
+          "panel_letter_italic", "panel_letter_font"])}
 
 ![Four panels: lines, stacked with peak labels, mean, and image.](plotting/panels.png)
 
 *Four panels: lines, stacked with peak labels, mean, and image.*
+
+**Layout and sizes.** `layout` can also be text: rows split by `;`, one
+letter per panel (in the order of the entries), the same letter in several
+places for a panel across them, and `.` for an empty place: `"AA;BC"` is one
+wide panel over two, `"AB;AC"` one tall panel beside two. `widths=[2, 1]`
+and `heights=[1.3, 1]` give columns and rows their relative sizes (default all
+equal). On the website: `"layout": "AA;BC", "widths": [2, 1]`.
+
+**Shared parts.** Each of these is off by default, so a figure looks as
+before unless you turn it on: `panel_legend` gives one legend for the whole
+figure (each name once, so it suits panels that show the same spectra; the
+legend settings still apply; on top it goes under the figure title); `panel_shared_labels` gives one x and/or y label for the
+whole figure, with the text of `xlabel` / `ylabel` given to `panels`, else the
+first panel's, styled by the `xlabel_...` / `ylabel_...` settings;
+`panel_colorbar` gives all image panels one colour scale (`color_limits`,
+else the 1st and 99th percentile of all of them) and one colour bar.
+
+{section(["panel_spacing", "panel_spacing_x", "panel_spacing_y", "panel_legend", "panel_shared_labels",
+          "panel_colorbar"])}
+
+![The full range over two zooms (layout "AA;BC", heights [1.3, 1]), one legend on top and one y label.](plotting/panels_layout.png)
+
+*The full range over two zooms (layout "AA;BC", heights [1.3, 1]), one legend on top and one y label.*
+
+![Two image panels with one colour bar and one colour scale, and more space between the columns.](plotting/panels_colorbar.png)
+
+*Two image panels with one colour bar and one colour scale, and more space between the columns.*
 
 ## Reference lines at zero
 
@@ -627,7 +664,7 @@ gives a warning; the website's answer has an `X-Warning` header naming it.
     if missing:                                                      # every setting must appear somewhere
         raise SystemExit(f"Settings not placed in any section of the reference: {sorted(missing)}")
     DOC.write_text("".join(parts), encoding="utf-8")
-    print(f"Wrote {DOC.relative_to(ROOT)} ({len(SETTINGS)} settings) and {len(PICTURE_LIST) + 1} pictures.")
+    print(f"Wrote {DOC.relative_to(ROOT)} ({len(SETTINGS)} settings) and {len(PICTURE_LIST) + 3} pictures.")
 
 
 if __name__ == "__main__":

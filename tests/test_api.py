@@ -243,3 +243,12 @@ def test_figure_warns_about_missing_fonts():
                     headers={"Origin": "https://cheminations.com"})
     assert r.status_code == 200 and "No Such Font" in r.headers["x-warning"]
     assert "x-warning" in r.headers["access-control-expose-headers"].lower()
+
+
+def test_figure_panels_layout_text_and_shared_parts():
+    body = {"panels": [{"data": sample()}, {"data": sample(), "region": [950, 1050]}, {"data": sample(), "kind": "image"}],
+            "layout": "AA;BC", "heights": [2, 1], "xlabel": "Raman shift", "title": "T",
+            "settings": {"panel_legend": "figure top", "panel_shared_labels": True, "panel_spacing_y": 0.1}}
+    assert client.post("/figure", json=body).status_code == 200
+    r = client.post("/figure", json={**body, "layout": "AB;BA"})
+    assert r.status_code == 422 and "rectangle" in r.json()["detail"]

@@ -389,8 +389,10 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     """Draw data (or several panels) and return the figure file.
 
     With "panels": [{"data": ..., "kind": ..., "settings": {...}, ...}, ...]
-    the figure has one panel per entry; "layout": [rows, columns],
-    "share_x", "share_y" and "title" (over the whole figure) are optional.
+    the figure has one panel per entry; "layout" ([rows, columns] or text
+    such as "AA;BC"), "widths", "heights", "share_x", "share_y", "title"
+    (over the whole figure), "xlabel" and "ylabel" (the shared labels) are
+    optional.
     When a font asked for is not installed on the server, the answer has an
     "X-Warning" header saying which fonts were replaced.
     """
@@ -409,8 +411,9 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
         try:
             if "panels" in body:
                 entries = _panel_items(body)
-                axes = panels(entries, body.get("layout"), share_x=bool(body.get("share_x", False)),
-                              share_y=bool(body.get("share_y", False)), title=body.get("title"),
+                axes = panels(entries, body.get("layout"), widths=body.get("widths"), heights=body.get("heights"),
+                              share_x=bool(body.get("share_x", False)), share_y=bool(body.get("share_y", False)),
+                              title=body.get("title"), xlabel=body.get("xlabel"), ylabel=body.get("ylabel"),
                               style=body.get("style"), **settings)
                 ax = axes[0]
                 own = [p.get("settings") or {} for p in body["panels"]]

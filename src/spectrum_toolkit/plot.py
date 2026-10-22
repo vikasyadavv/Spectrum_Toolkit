@@ -1018,16 +1018,48 @@ PANEL_ARGUMENTS = ("data", "kind", "region", "offset", "labels", "color", "highl
                    "marks", "title", "xlabel", "ylabel", "invert_x", "notes", "inset", "letter")
 
 
-def _panel_layout(n: int, layout) -> tuple[int, int]:
-    """(rows, columns): the one given, checked, or one column up to 3 panels, else two columns."""
+def _panel_layout(n: int, layout) -> list[list]:
+    """The grid of panels: one row per list, each place the panel's number (0 = first) or None (empty).
+
+    layout: None (one column up to 3 panels, else two columns), [rows, columns],
+    or text such as "AA;BC": rows split by ";", one letter per panel (in the
+    order they first appear), the same letter in several places for a panel
+    across them, and "." for an empty place.
+    """
     if layout is None:
-        return (n, 1) if n <= 3 else (-(-n // 2), 2)
-    if (not isinstance(layout, (list, tuple)) or len(layout) != 2
-            or not all(isinstance(v, int) and not isinstance(v, bool) and v >= 1 for v in layout)):
-        raise ValueError(f"layout must be [rows, columns], e.g. [2, 2]; got {layout!r}.")
-    if layout[0] * layout[1] < n:
-        raise ValueError(f"layout {list(layout)} has room for {layout[0] * layout[1]} panels, but got {n}.")
-    return tuple(layout)
+        rows, cols = (n, 1) if n <= 3 else (-(-n // 2), 2)
+    elif isinstance(layout, str):
+        grid = [list(row.replace(" ", "")) for row in layout.split(";")]
+        if not all(grid) or len({len(row) for row in grid}) != 1:
+            raise ValueError(f'layout text needs rows of the same length, split by ";", e.g. "AA;BC"; got {layout!r}.')
+        order = list(dict.fromkeys(c for row in grid for c in row if c != "."))
+        for letter in order:                                         # each panel must fill a rectangle
+            places = [(r, c) for r, row in enumerate(grid) for c, v in enumerate(row) if v == letter]
+            rs, cs = [r for r, _ in places], [c for _, c in places]
+            if len(places) != (max(rs) - min(rs) + 1) * (max(cs) - min(cs) + 1):
+                raise ValueError(f"layout {layout!r}: panel {letter!r} must fill a rectangle.")
+        if len(order) != n:                                          # one letter per panel
+            raise ValueError(f"layout {layout!r} has {len(order)} panels ({', '.join(order)}), but got {n}.")
+        return [[None if v == "." else order.index(v) for v in row] for row in grid]
+    elif (isinstance(layout, (list, tuple)) and len(layout) == 2
+          and all(isinstance(v, int) and not isinstance(v, bool) and v >= 1 for v in layout)):
+        rows, cols = layout
+        if rows * cols < n:
+            raise ValueError(f"layout {list(layout)} has room for {rows * cols} panels, but got {n}.")
+    else:
+        raise ValueError(f'layout must be [rows, columns], e.g. [2, 2], or text such as "AA;BC"; got {layout!r}.')
+    return [[k if k < n else None for k in range(r * cols, (r + 1) * cols)] for r in range(rows)]
+
+
+def _ratios(name: str, value, count: int):
+    """widths / heights of panels, checked: one positive number per column / row."""
+    if value is None:
+        return None
+    if (not isinstance(value, (list, tuple)) or len(value) != count
+            or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 for v in value)):
+        what = "column" if name == "widths" else "row"
+        raise ValueError(f"{name} must be one number above 0 per {what} ({count}), e.g. {[1] * count}; got {value!r}.")
+    return list(value)
 
 
 def _panel_letter(ax, text: str, look) -> None:
@@ -1047,9 +1079,10 @@ def _panel_letter(ax, text: str, look) -> None:
         t.set_fontweight(use["panel_letter_weight"])
 
 
-def panels(items: list, layout: list | tuple | None = None, *, share_x: bool = False, share_y: bool = False,
-           title: str | None = None, style: str | dict | None = None, save: str | None = None,
-           **style_settings: Any) -> list:
+def panels(items: list, layout: list | tuple | str | None = None, *, widths: list | None = None,
+           heights: list | None = None, share_x: bool = False, share_y: bool = False, title: str | None = None,
+           xlabel: str | None = None, ylabel: str | None = None, style: str | dict | None = None,
+           save: str | None = None, **style_settings: Any) -> list:
     """Several plots in one figure, each with a letter: (a), (b), (c) ...
 
     Parameters
@@ -1061,14 +1094,22 @@ def panels(items: list, layout: list | tuple | None = None, *, share_x: bool = F
         "inset" ...; see ``plot``). Any other key of the dict is a style
         setting for that panel only, e.g. {"data": d, "kind": "stack",
         "line_width": 2}. "letter" replaces the panel's letter (False: none).
-    layout : [rows, columns]; default one column for up to 3 panels, else two columns.
+    layout : [rows, columns]; or text such as "AA;BC" (rows split by ";",
+        one letter per panel in the order of items, the same letter in several
+        places for a panel across them, "." for an empty place); default one
+        column for up to 3 panels, else two columns.
+    widths, heights : relative width of each column and height of each row,
+        e.g. widths=[2, 1]; default all equal.
     share_x, share_y : panels share the x (or y) range; the numbers and the
         axis label are then written only on the outer panels.
     title : one title over the whole figure (each panel's own title goes in its dict).
+    xlabel, ylabel : text of the shared labels (panel_shared_labels); default
+        the first panel's labels.
     style, save, **style_settings : as in ``plot``, for every panel. The
         figure is size x layout (each panel gets the size of one plot).
-        Panel settings: panel_letters, panel_letter_format, panel_letter_case,
-        panel_letter_position, panel_letter_size ..., panel_spacing.
+        Panel settings: panel_letters, panel_letter_format ..., panel_spacing,
+        panel_spacing_x, panel_spacing_y, panel_legend, panel_shared_labels,
+        panel_colorbar.
 
     Returns the list of the panels' matplotlib Axes (``axes[0].figure`` is the figure).
     """
@@ -1081,65 +1122,172 @@ def panels(items: list, layout: list | tuple | None = None, *, share_x: bool = F
         if "data" not in entry:
             raise ValueError(f'Panel {i + 1} has no "data".')
         entries.append(entry)
-    rows, cols = _panel_layout(len(entries), layout)
+    grid = _panel_layout(len(entries), layout)
+    rows, cols = len(grid), len(grid[0])
+    widths, heights = _ratios("widths", widths, cols), _ratios("heights", heights, rows)
     look = get_style(style, **style_settings)
+    use = look or DEFAULTS
+    shared_bar = use["panel_colorbar"] == "shared"
+    figure_legend = use["panel_legend"] != "each"
     plt = _plt()
     with styled(look):
         width, height = _size_inches(look) if look else plt.rcParams["figure.figsize"]
-        fig, grid = plt.subplots(rows, cols, squeeze=False, figsize=(width * cols, height * rows),
-                                 layout="constrained")
-        space = (look or DEFAULTS)["panel_spacing"]
-        fig.get_layout_engine().set(wspace=space, hspace=space)
-        axes = list(grid.flat)
-        for ax in axes[len(entries):]:                               # empty places in the grid
-            fig.delaxes(ax)
-        axes = axes[:len(entries)]
+        fig = plt.figure(figsize=(width * cols, height * rows), layout="constrained")
+        mosaic = [[str(k) if k is not None else "." for k in row] for row in grid]
+        made = fig.subplot_mosaic(mosaic, empty_sentinel=".", width_ratios=widths, height_ratios=heights)
+        axes = [made[str(k)] for k in range(len(entries))]
+        across, down = (use[k] if use[k] is not None else use["panel_spacing"]       # x and y, else both
+                        for k in ("panel_spacing_x", "panel_spacing_y"))
+        fig.get_layout_engine().set(wspace=across, hspace=down)
         for ax in axes[1:]:                                          # shared ranges; which numbers show is set below
             if share_x:
                 ax.sharex(axes[0])
             if share_y:
                 ax.sharey(axes[0])
+        images = [i for i, e in enumerate(entries) if e.get("kind") == "image"]
+        limits = _shared_limits([entries[i] for i in images], look) if shared_bar and images else None
         looks = []
         for i, (ax, entry) in enumerate(zip(axes, entries)):
             data = entry["data"] if isinstance(entry["data"], (list, tuple)) else [entry["data"]]
             arguments = {k: v for k, v in entry.items() if k in PANEL_ARGUMENTS and k not in ("data", "letter")}
             own = {k: v for k, v in entry.items() if k not in PANEL_ARGUMENTS}
+            if limits is not None and i in images:                   # one colour scale, one bar (drawn below)
+                own = {"color_limits": limits, **own, "colorbar": False}
+            if figure_legend:                                        # one legend for the figure (drawn below)
+                own = {**own, "legend": False}
             try:
                 plot(*data, ax=ax, style=style, **arguments, **{**style_settings, **own})
             except (TypeError, ValueError) as error:                 # say which panel is wrong
                 raise ValueError(f"Panel {i + 1}: {error}") from None
             panel_look = get_style(style, **{**style_settings, **own})
             looks.append(panel_look)
-            use = panel_look or DEFAULTS
+            panel_use = panel_look or DEFAULTS
             letter = entry.get("letter", True)
-            if letter is not False and letter is not None and (use["panel_letters"] or isinstance(letter, str)):
+            if letter is not False and letter is not None and (panel_use["panel_letters"] or isinstance(letter, str)):
                 if not isinstance(letter, str):
                     name = chr(ord("a") + i) if i < 26 else str(i + 1)
-                    name = name.upper() if use["panel_letter_case"] == "upper" else name
-                    letter = use["panel_letter_format"].format(name)
+                    name = name.upper() if panel_use["panel_letter_case"] == "upper" else name
+                    letter = panel_use["panel_letter_format"].format(name)
                 _panel_letter(ax, letter, panel_look)
-        for i, ax in enumerate(axes):                                # shared axes: numbers on the outer panels only
-            row, col = divmod(i, cols)
-            below = i + cols < len(axes)                             # another panel under this one
-            if share_x and below:
-                ax.tick_params(labelbottom=False)
-                ax.set_xlabel("")
-            if share_y and col > 0:
-                ax.tick_params(labelleft=False)
-                ax.set_ylabel("")
+        _shared_labels(fig, axes, look, xlabel, ylabel)                # before the inner labels are removed
+        _outer_numbers(axes, grid, share_x, share_y)
+        if figure_legend:
+            _figure_legend(fig, axes, look, under_title=bool(title))
+        if limits is not None:
+            _shared_colorbar(fig, [axes[i] for i in images], look, entries[images[0]]["data"])
         if title:                                                    # styled like the panel titles
-            use = look or DEFAULTS
             heading = fig.suptitle(title)
             if look:
-                _style_text(heading, look, size=use["title_size"],
-                            weight=use["title_weight"] or use["font_weight"], color=use["title_color"], alpha=use["title_alpha"],
-                            italic=use["title_italic"], font=use["title_font"])
+                _style_text(heading, look, size=use["title_size"], weight=use["title_weight"] or use["font_weight"],
+                            color=use["title_color"], alpha=use["title_alpha"], italic=use["title_italic"],
+                            font=use["title_font"])
         fig.canvas.draw()                                            # run the layout, then place what depends on it
+        if title and fig.legends and use["panel_legend"] == "figure top":
+            _legend_under_title(fig)
         for ax, panel_look in zip(axes, looks):
             place_outside_legend(ax, panel_look)
             _separate(ax, panel_look)
         _save(axes[0], save, look)
     return axes
+
+
+def _legend_under_title(fig) -> None:
+    """A legend at the top of a figure with a title: under the title, with the panels moved down to make room.
+
+    (matplotlib's layout would put the title and the legend in the same place.)
+    """
+    leg = fig.legends[-1]
+    renderer = fig.canvas.get_renderer()
+    height, gap = fig.bbox.height, 4 * fig.dpi / 72              # pixels; gap = 4 points
+    room = (leg.get_window_extent(renderer).height + gap) / height
+    fig.get_layout_engine().set(rect=(0, 0, 1, 1 - room))       # the panels end below the legend
+    fig.canvas.draw()
+    under = fig._suptitle.get_window_extent(renderer).y0 - gap
+    leg.set_bbox_to_anchor((0, 0, 1, under / height), transform=fig.transFigure)
+
+
+def _outer_numbers(axes, grid, share_x: bool, share_y: bool) -> None:
+    """Shared axes: x numbers and label only where no panel is below, y only where none is to the left."""
+    for k, ax in enumerate(axes):
+        places = [(r, c) for r, row in enumerate(grid) for c, v in enumerate(row) if v == k]
+        bottom, left = max(r for r, _ in places), min(c for _, c in places)
+        rows_of, cols_of = {r for r, _ in places}, {c for _, c in places}
+        below = any(grid[r][c] not in (None, k) for r in range(bottom + 1, len(grid)) for c in cols_of)
+        beside = any(grid[r][c] not in (None, k) for r in rows_of for c in range(left))
+        if share_x and below:
+            ax.tick_params(labelbottom=False)
+            ax.set_xlabel("")
+        if share_y and beside:
+            ax.tick_params(labelleft=False)
+            ax.set_ylabel("")
+
+
+def _shared_labels(fig, axes, look, xlabel, ylabel) -> None:
+    """panel_shared_labels: one x label under the figure and/or one y label on its left."""
+    from .style import style_axis_label
+    shared = (look or DEFAULTS)["panel_shared_labels"]
+    for axis, own, wanted in (("x", xlabel, shared in (True, "x")), ("y", ylabel, shared in (True, "y"))):
+        if not wanted:
+            continue
+        text = own if own is not None else getattr(axes[0], f"get_{axis}label")()
+        for ax in axes:                                              # the panels' own labels go
+            getattr(ax, f"set_{axis}label")("")
+        label = fig.supxlabel(text) if axis == "x" else fig.supylabel(text)
+        if look:
+            style_axis_label(label, look, axis)
+
+
+_FIGURE_LEGEND = {"figure top": "outside upper center", "figure bottom": "outside lower center",
+                  "figure right": "outside right upper"}
+
+
+def _figure_legend(fig, axes, look, under_title: bool = False) -> None:
+    """panel_legend: one legend for the whole figure, each name once, in the order the panels show them.
+
+    under_title: a legend on top goes under the figure title (placed by _legend_under_title).
+    """
+    from .style import legend_entries, legend_options, style_legend_box
+    use = look or DEFAULTS
+    seen = {}
+    for ax in axes:
+        for handle, label in zip(*ax.get_legend_handles_labels()):
+            seen.setdefault(label, handle)
+    labels, handles = list(seen), list(seen.values())
+    show = use["legend"]
+    if not labels or show is False or (show == "auto" and not 1 < len(labels) <= 10):
+        return
+    place = _FIGURE_LEGEND[use["panel_legend"]]
+    by_hand = under_title and use["panel_legend"] == "figure top"
+    if by_hand:
+        place = "upper center"
+    if look is None:
+        fig.legend(handles, labels, loc=place).set_in_layout(not by_hand)
+        return
+    handles, labels = legend_entries(handles, labels, look)
+    columns = None
+    if use["panel_legend"] != "figure right" and use["legend_columns"] == 1:
+        columns = len(labels)                                        # above or below: one row
+    leg = fig.legend(handles, labels, loc=place, **legend_options(look, len(labels), columns))
+    leg.set_in_layout(not by_hand)                               # placed by hand: the layout leaves room instead
+    style_legend_box(leg, look)
+
+
+def _shared_limits(entries, look) -> list:
+    """One colour scale for the image panels: color_limits, else the 1st and 99th percentile of all of them."""
+    use = look or DEFAULTS
+    values = np.concatenate([_rows(e["data"] if not isinstance(e["data"], (list, tuple)) else e["data"][0])[1].ravel()
+                             for e in entries])
+    lo, hi = np.percentile(values, [1, 99])
+    wanted = use["color_limits"] or (None, None)
+    return [float(lo) if wanted[0] is None else wanted[0], float(hi) if wanted[1] is None else wanted[1]]
+
+
+def _shared_colorbar(fig, axes, look, first) -> None:
+    """panel_colorbar "shared": one colour bar beside all image panels."""
+    use = look or DEFAULTS
+    first = first[0] if isinstance(first, (list, tuple)) else first
+    fig.colorbar(axes[0].collections[0], ax=axes, label=use["colorbar_label"] or first.y_unit or "Intensity",
+                 fraction=use["colorbar_fraction"], shrink=use["colorbar_length"], ticks=use["colorbar_ticks_at"])
 
 
 def _describe(step: dict) -> str:

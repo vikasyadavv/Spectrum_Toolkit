@@ -366,6 +366,14 @@ SETTINGS: dict[str, tuple[Any, str]] = {
     "panel_letter_font": (None, "letter font; None = font"),
     "panel_spacing": (0.02, "extra space between panels, as a fraction of the figure (0 = only the room "
                             "their labels need)"),
+    "panel_spacing_x": (None, "extra space between columns of panels; None = panel_spacing"),
+    "panel_spacing_y": (None, "extra space between rows of panels; None = panel_spacing"),
+    "panel_legend": ("each", '"each" (a legend in each panel, as set by legend) or one legend for the whole '
+                             'figure: "figure top", "figure bottom" or "figure right"'),
+    "panel_shared_labels": (False, 'one x label and one y label for the whole figure instead of one per panel: '
+                                   'true, false, "x" or "y" (only that axis)'),
+    "panel_colorbar": ("each", '"each" (every image panel has its own colour bar and colour scale) or "shared" '
+                               '(one colour bar and one colour scale for all image panels)'),
     # saving
     "tight": (True, "cut the white space around the figure when saving: true or false (false keeps the exact "
                     "figure size)"),
@@ -447,6 +455,9 @@ CHOICES: dict[str, tuple] = {
     "inset_position": ("upper left", "upper right", "lower left", "lower right"),
     "panel_letter_case": ("lower", "upper"),
     "panel_letter_position": ("outside", "inside"),
+    "panel_legend": ("each", "figure top", "figure bottom", "figure right"),
+    "panel_shared_labels": (True, False, "x", "y"),
+    "panel_colorbar": ("each", "shared"),
     "label_overlap": ("move", "keep"),
     **{f"{_what}_position": ("top", "peak") for _what in TEXTS},
 }
@@ -569,8 +580,9 @@ def _check_one(name: str, value) -> None:
             raise ValueError(f"{name} must be a number; got {value!r}.")
         if name in ("top_axis_laser", "scale_bar", "colorbar_fraction", "colorbar_length") and value <= 0:
             raise ValueError(f"{name} must be more than 0; got {value!r}.")
-    if name == "panel_spacing" and isinstance(value, (int, float)) and not 0 <= value <= 0.5:
-        raise ValueError(f"panel_spacing must be from 0 to 0.5 (a fraction of the figure); got {value!r}.")
+    if name.startswith("panel_spacing") and (not isinstance(value, (int, float)) or isinstance(value, bool)
+                                             or not 0 <= value <= 0.5):
+        raise ValueError(f"{name} must be a number from 0 to 0.5 (a fraction of the figure); got {value!r}.")
     if name in ("colorbar_length", "inset_scale", "colorbar_fraction") and not 0 < value <= 1:
         raise ValueError(f"{name} must be more than 0 and at most 1; got {value!r}.")
     if name in ("x_range", "y_range") and not (isinstance(value, (list, tuple)) and len(value) == 2 and all(
@@ -1084,17 +1096,22 @@ def _style_ticks(ax, look: dict, twin: bool) -> None:
                                 rotation=setting(look, "tick_label_rotation", axis, side))
 
 
+def style_axis_label(text, look: dict, axis: str) -> None:
+    """Style one x or y axis label (also the shared labels of panels): xlabel_size, then label_size ..."""
+    def get(key):
+        value = look.get(f"{axis}{key}")
+        return value if value is not None else look.get(key)
+    _style_text(text, look, size=get("label_size"), weight=get("label_weight") or look["font_weight"],
+                color=get("label_color"), alpha=get("label_alpha"), italic=get("label_italic"),
+                font=get("label_font"), rotation=look[f"{axis}label_rotation"])
+
+
 def _style_labels_and_title(ax, look: dict) -> None:
     """x and y axis labels (each on its own), and the title."""
     for axis, axis_obj in (("x", ax.xaxis), ("y", ax.yaxis)):
-        def get(key):                                            # xlabel_size, then label_size
-            value = look.get(f"{axis}{key}")
-            return value if value is not None else look.get(key)
-        _style_text(axis_obj.label, look, size=get("label_size"),
-                    weight=get("label_weight") or look["font_weight"], color=get("label_color"),
-                    alpha=get("label_alpha"), italic=get("label_italic"), font=get("label_font"),
-                    rotation=look[f"{axis}label_rotation"])
-        axis_obj.labelpad = get("label_pad")
+        style_axis_label(axis_obj.label, look, axis)
+        value = look.get(f"{axis}label_pad")
+        axis_obj.labelpad = value if value is not None else look.get("label_pad")
     # The title can sit left, centre or right; matplotlib keeps three separate
     # title texts, so take whichever has text and put it where the style says.
     texts = [ax.title, ax._left_title, ax._right_title]
@@ -1205,13 +1222,7 @@ def legend(ax, look: dict | None, n_lines: int, force: bool | str | None = None)
     if look is None:
         ax.legend(loc="best")
         return
-    from matplotlib.font_manager import FontProperties
-    handles, labels = ax.get_legend_handles_labels()
-    hide = look["legend_hide"] or []
-    keep = [i for i, label in enumerate(labels) if i not in hide and label not in hide]
-    handles, labels = [handles[i] for i in keep], [labels[i] for i in keep]
-    if look["legend_order"] == "reverse":
-        handles, labels = handles[::-1], labels[::-1]
+    handles, labels = legend_entries(*ax.get_legend_handles_labels(), look)
     where = {}
     if look["legend_position"] is not None:                      # exact corner, 0-1 of the plot
         where = {"loc": "lower left", "bbox_to_anchor": tuple(look["legend_position"])}
@@ -1223,17 +1234,38 @@ def legend(ax, look: dict | None, n_lines: int, force: bool | str | None = None)
         where = {"loc": "upper center", "bbox_to_anchor": (0.5, -0.2)}    # moved under the x label in finish_axes
     else:
         where = {"loc": look["legend_location"]}
+    leg = ax.legend(handles, labels, **where, **legend_options(look, len(labels)))
+    style_legend_box(leg, look)
+
+
+def legend_entries(handles: list, labels: list, look: dict) -> tuple[list, list]:
+    """The legend entries left after legend_hide, in legend_order."""
+    hide = look["legend_hide"] or []
+    keep = [i for i, label in enumerate(labels) if i not in hide and label not in hide]
+    handles, labels = [handles[i] for i in keep], [labels[i] for i in keep]
+    if look["legend_order"] == "reverse":
+        handles, labels = handles[::-1], labels[::-1]
+    return handles, labels
+
+
+def legend_options(look: dict, n_labels: int, columns: int | None = None) -> dict:
+    """Everything about a legend except its place: columns, text, title, legend box, samples."""
+    from matplotlib.font_manager import FontProperties
     text_font = FontProperties(family=_fonts(look["legend_font"] or look["font"]), size=look["legend_size"],
                                weight=look["legend_weight"], style="italic" if look["legend_italic"] else "normal")
     title_font = FontProperties(family=_fonts(look["legend_font"] or look["font"]),
                                 size=look["legend_title_size"] or look["legend_size"],
                                 weight=look["legend_title_weight"])
-    leg = ax.legend(handles, labels, **where, ncols=look["legend_columns"], prop=text_font,
-                    labelcolor=[to_rgba(look["legend_color"], look["legend_alpha"])] * len(labels),
-                    title=look["legend_title"], title_fontproperties=title_font,
-                    frameon=bool(look["legend_box"]), fancybox=bool(look["legend_box_round"]),
-                    shadow=bool(look["legend_shadow"]), handlelength=look["legend_line_length"],
-                    markerscale=look["legend_marker_scale"], labelspacing=look["legend_spacing"])
+    return dict(ncols=columns or look["legend_columns"], prop=text_font,
+                labelcolor=[to_rgba(look["legend_color"], look["legend_alpha"])] * n_labels,
+                title=look["legend_title"], title_fontproperties=title_font,
+                frameon=bool(look["legend_box"]), fancybox=bool(look["legend_box_round"]),
+                shadow=bool(look["legend_shadow"]), handlelength=look["legend_line_length"],
+                markerscale=look["legend_marker_scale"], labelspacing=look["legend_spacing"])
+
+
+def style_legend_box(leg, look: dict) -> None:
+    """The legend box: line colour, transparency and width, and the fill."""
     frame = leg.get_frame()
     frame.set_alpha(None)                                        # transparency comes from the two colours below
     frame.set_edgecolor(to_rgba(look["legend_box_color"], look["legend_box_alpha"]))
