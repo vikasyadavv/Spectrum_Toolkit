@@ -48,7 +48,7 @@ from typing import Any
 import numpy as np
 
 from .core import Spectrum, SpectrumCollection
-from .style import export, finish_axes, get_style, legend, styled
+from .style import DEFAULTS, _colors, export, finish_axes, get_style, legend, line_settings, styled, to_rgba
 
 Data = Spectrum | SpectrumCollection
 
@@ -193,8 +193,63 @@ def _save(ax, save, look):
         export(ax, save, style={"preset": "clean", **look} if look else "matplotlib")
 
 
+def _line_colors(look, plt, n: int) -> list:
+    """One palette colour per spectrum: the style's colors, or the colour map for many spectra."""
+    if n > _MANY or look is None:
+        cmap = plt.get_cmap(look["cmap"] if look else "viridis")
+        if n > _MANY:
+            return [tuple(c) for c in cmap(np.linspace(0, 0.9, n))]
+        cycle = plt.rcParams["axes.prop_cycle"].by_key().get("color", ["C0"])   # matplotlib's own colours
+        return [cycle[k % len(cycle)] for k in range(n)]
+    palette = _colors(look, n)
+    return [palette[k % len(palette)] for k in range(n)]
+
+
+def _emphasized(emphasize, names: list, labels: list, n: int) -> set:
+    """The spectrum numbers to emphasize (plot's emphasize), checked."""
+    if emphasize is None:
+        return set()
+    chosen = set()
+    for item in emphasize if isinstance(emphasize, (list, tuple)) else [emphasize]:
+        if isinstance(item, str):
+            if item in labels:
+                item = labels.index(item)
+            elif item in names:
+                item = names.index(item)
+            else:
+                raise ValueError(f"emphasize: no spectrum named {item!r}.")
+        if not isinstance(item, (int, np.integer)) or isinstance(item, bool) or not -n <= item < n:
+            raise ValueError(f"emphasize: {item!r} is not a spectrum number from 0 to {n - 1} or a name.")
+        chosen.add(int(item) % n)
+    return chosen
+
+
+def _draw(ax, x, y, k: int, color, look, chosen: set, base: float, label: str):
+    """Draw spectrum number k with its own line settings; returns the line."""
+    import matplotlib as mpl
+    if look is None:                                                 # "matplotlib" preset: its own defaults
+        kw = dict(color=to_rgba(color), linewidth=mpl.rcParams["lines.linewidth"])
+        look = DEFAULTS                                              # for emphasize_width, faded_alpha, fill
+    else:
+        kw = line_settings(look, k, color)
+    if k in chosen:                                                  # emphasized: on top, thicker and solid
+        width = look["emphasize_width"] if look["emphasize_width"] is not None else 2 * kw["linewidth"]
+        kw.update(linewidth=width, color=kw["color"][:3] + (1.0,), zorder=3)
+    elif chosen:                                                     # the others fade behind them
+        for part in ("color", "markeredgecolor", "markerfacecolor"):
+            if kw.get(part) not in (None, "none"):
+                kw[part] = kw[part][:3] + (look["faded_alpha"],)
+    line, = ax.plot(x, y, label=label, **kw)
+    if look["fill"]:                                                 # area between the line and its zero
+        fill = look["fill_color"] if look["fill_color"] is not None else kw["color"]
+        ax.fill_between(x, base, y, color=to_rgba(fill, look["fill_alpha"]), lw=0,
+                        zorder=line.get_zorder() - 0.1)
+    return line
+
+
 def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] | None = None,
          offset: float | None = None, labels: list[str] | None = None, color=None, highlight=None,
+         emphasize: list | int | str | None = None,
          peaks: int | list | None = None, marks: dict | list | None = None, title: str | None = None,
          xlabel: str | None = None, ylabel: str | None = None, invert_x: bool = False,
          style: str | dict | None = None, save: str | None = None, **style_settings: Any):
@@ -209,9 +264,12 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     offset : "stack" only: vertical shift between spectra; default automatic.
     labels : legend labels, one per spectrum (or per collection for "mean");
         default the spectrum names.
-    color : one colour for every line; default the style's colours.
+    color : old name of the style setting line_color (one colour, or one per spectrum).
     highlight : "spikes" shades the spikes removed by despike (from history);
         a list of (lo, hi) shades those x ranges; None (default) shades nothing.
+    emphasize : spectra to bring forward, by number (0 = first) or name, e.g.
+        [0, 3]: drawn on top, thicker (emphasize_width) and solid; the others
+        fade (faded_alpha). For "mean", the numbers count the collections.
     peaks : label band positions on the first line: a number (that many of
         the most prominent bands) or a list of x positions.
     marks : vertical reference lines: a list of x, or a dict x -> label.
@@ -222,7 +280,8 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     save : file name to save to (type from the extension; dpi and colour
         mode from the style).
     **style_settings : any style setting by name, e.g. aspect="square",
-        box_width=2, line_width=1.5, colors="matlab", tick_direction="in", grid=False.
+        box_width=2, line_width=1.5, colors="matlab", tick_direction="in", grid=False,
+        line_format="o--", line_alpha=[1, 0.4], marker_fill="none", fill=True.
 
     Returns the matplotlib Axes.
     """
@@ -231,6 +290,8 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     if kind not in KINDS:
         raise ValueError(f"Unknown kind {kind!r}. Choose one of: {', '.join(KINDS)}.")
     highlight = _check_highlight(highlight)                         # a wrong value is an error, not ignored
+    if color is not None:                                           # old argument: same as line_color
+        style_settings.setdefault("line_color", color)
     look = get_style(style, **style_settings)
     plt = _plt()
     with styled(look):
@@ -260,9 +321,12 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
             return ax
         if kind == "mean":
             labels = list(labels) if labels else [getattr(d, "name", None) or f"set {i + 1}" for i, d in enumerate(data)]
+            names = [getattr(d, "name", None) for d in data]
+            colors = _line_colors(look, plt, len(rows))
+            chosen = _emphasized(emphasize, names, labels, len(rows))
             for i, (x, Y, _) in enumerate(rows):
                 m, sd = Y.mean(axis=0), Y.std(axis=0)
-                line, = ax.plot(x, m, label=f"{labels[i]} (n={len(Y)})", color=color)
+                line = _draw(ax, x, m, i, colors[i], look, chosen, 0.0, label=f"{labels[i]} (n={len(Y)})")
                 ax.fill_between(x, m - sd, m + sd, color=line.get_color(), alpha=0.25, lw=0)
                 drawn += [(x, m - sd), (x, m + sd)]
             first_line = (rows[0][0], rows[0][1].mean(axis=0))
@@ -272,8 +336,8 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
             labels = list(labels) if labels else all_names
             if len(labels) != n_total:
                 raise ValueError(f"Got {len(labels)} labels for {n_total} spectra.")
-            cmap = plt.get_cmap(look["cmap"] if look else "viridis")
-            colors = cmap(np.linspace(0, 0.9, n_total)) if n_total > _MANY else [None] * n_total
+            colors = _line_colors(look, plt, n_total)
+            chosen = _emphasized(emphasize, all_names, labels, n_total)
             if kind == "stack" and offset is None:
                 # Automatic shift: 60 % of the typical (median) height of one spectrum:
                 # neighbours overlap a little at their tallest bands, but each
@@ -284,18 +348,23 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
             segments = []
             for x, Y, _ in rows:
                 for y in Y:
-                    y = y + (k * offset if kind == "stack" else 0)
+                    base = k * offset if kind == "stack" else 0.0             # where this line's zero is
+                    y = y + base
                     drawn.append((x, y))
-                    if n_total > _HUGE:
+                    if n_total > _HUGE and not chosen:
                         segments.append(np.column_stack([x, y]))      # drawn together below, much faster
                     else:
-                        ax.plot(x, y, label=labels[k], color=color if color is not None else colors[k])
+                        _draw(ax, x, y, k, colors[k], look, chosen, base, label=labels[k])
                     k += 1
             if segments:
                 from matplotlib.collections import LineCollection
-                width = (look["line_width"] if look else 1.0) * 0.4
-                ax.add_collection(LineCollection(segments, colors=color if color is not None else colors,
-                                                 linewidths=width, alpha=0.35))
+                width = (look["line_width"] if look and not isinstance(look["line_width"], (list, tuple))
+                         else 1.0) * 0.4
+                see_through = 0.35                                     # many lines: see-through unless line_alpha is set
+                if look:                                               # line_color and line_alpha: one or one per spectrum
+                    colors = [line_settings(look, i, c)["color"] for i, c in enumerate(colors)]
+                    see_through = see_through if look["line_alpha"] is None else None   # None: alpha in the colours
+                ax.add_collection(LineCollection(segments, colors=colors, linewidths=width, alpha=see_through))
                 ax.autoscale_view()
             if kind == "stack":
                 ax.set_yticks([])                                    # absolute values mean little once shifted

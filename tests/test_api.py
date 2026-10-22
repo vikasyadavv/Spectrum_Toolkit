@@ -198,3 +198,17 @@ def test_load_answer_always_has_the_same_fields():
     r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")},
                     data={"summary_only": "true"}).json()
     assert r["data"]["x"] is None and r["data"]["Y"] is None and r["data"]["n_spectra"] == 2
+
+
+def test_figure_line_settings_color_mode_and_emphasize():
+    body = {"data": sample(), "format": "tiff", "emphasize": [1],
+            "settings": {"line_format": ["o-", "*--"], "marker_every": 20, "line_alpha": 0.7}}
+    for mode in ({"color_mode": "cmyk"}, {"color": "cmyk"}):                # new name, and the old one
+        r = client.post("/figure", json={**body, **mode})
+        assert r.status_code == 200
+        from PIL import Image
+        assert Image.open(io.BytesIO(r.content)).mode == "CMYK"
+    r = client.post("/figure", json={"data": sample(), "color_mode": "red"})
+    assert r.status_code == 422 and "line_color" in r.json()["detail"]      # points to where line colours go
+    r = client.post("/figure", json={"data": sample(), "emphasize": [9]})
+    assert r.status_code == 422 and "emphasize" in r.json()["detail"]

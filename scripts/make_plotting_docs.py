@@ -16,7 +16,7 @@ import numpy as np
 
 import spectrum_toolkit as stk
 from spectrum_toolkit import SpectrumCollection
-from spectrum_toolkit.style import AXIS_OF_SIDE, SETTINGS, SIDES
+from spectrum_toolkit.style import AXIS_OF_SIDE, PALETTES, PER_SPECTRUM, SETTINGS, SIDES
 
 ROOT = Path(__file__).resolve().parent.parent
 DOC = ROOT / "docs" / "plotting.md"
@@ -56,12 +56,25 @@ PICTURE_LIST = [
      dict(xlabel_color="blue", xlabel_italic=True, ylabel_size=15, ylabel_weight="bold",
           title="Three samples", title_location="left", title_color=[160, 0, 0], title_italic=True,
           title_size=14)),
-    ("legend.png", "Legend with a heading, three columns in reverse order, a green frame and a light "
+    ("legend.png", "Legend with a heading, three columns in reverse order, a green legend box and a light "
                    "yellow, half see-through fill; italic purple entries.",
      dict(legend=True, legend_box=True, legend_title="Samples", legend_columns=3, legend_order="reverse",
           legend_box_color="green", legend_box_width=1.5, legend_fill="#ffffcc", legend_fill_alpha=0.6,
           legend_color="purple", legend_italic=True, legend_location="upper left")),
+    ("lines_format.png", "One look per spectrum with MATLAB codes: circles and a line, asterisks and dashes, "
+                         "hollow squares and dots; a marker on every 60th point only (stacked).",
+     dict(kind="stack", line_format=["o-", "*--", "s:"], marker_every=60, marker_size=6, marker_fill=[None, None, "none"],
+          line_width=1.2, legend=True)),
+    ("lines_emphasize.png", "Spectrum B emphasized: on top, thicker and solid, with the other two faded.",
+     dict(emphasize=["Sample B"], colors="dark", faded_alpha=0.25, legend=True)),
+    ("lines_fill.png", "Own colour per spectrum (one in CMYK), half see-through lines and a light fill under "
+                       "each line, down to its own zero (stacked).",
+     dict(kind="stack", line_color=["navy", "cmyk(0, 0.8, 1, 0)", "#2ca02c"], line_alpha=[1, 0.8, 0.6], fill=True,
+          fill_alpha=0.15, legend=True)),
 ]
+
+# Arguments of plot itself (not style settings): passed apart from the settings.
+PLOT_ARGUMENTS = ("kind", "title", "emphasize")
 
 
 def make_pictures() -> None:
@@ -71,7 +84,7 @@ def make_pictures() -> None:
     data = example_data()
     for name, _, settings in PICTURE_LIST:
         settings = dict(settings)
-        extra = {k: settings.pop(k) for k in ("title",) if k in settings}
+        extra = {k: settings.pop(k) for k in PLOT_ARGUMENTS if k in settings}
         ax = data.plot(size=(16, 8), **extra, **settings)
         stk.export(ax, PICTURES / name, dpi=110)
         plt.close("all")
@@ -105,8 +118,8 @@ def picture(name: str) -> str:
     python = ", ".join(f"{k}={v!r}" for k, v in settings.items())
     website = json.dumps(settings, ensure_ascii=False)
     return (f"![{caption}](plotting/{name})\n\n*{caption}*\n\nPython:\n```python\nc.plot({python})\n```\n"
-            f"Website (`/figure`): put the style settings in `\"settings\"` (title, xlabel and ylabel go at the "
-            f"top level):\n```json\n{website}\n```\n")
+            f"Website (`/figure`): put the style settings in `\"settings\"` (kind, title, xlabel, ylabel and "
+            f"emphasize go at the top level):\n```json\n{website}\n```\n")
 
 
 def group(prefixes: tuple, keys) -> list[str]:
@@ -118,8 +131,9 @@ def write_doc() -> None:
     general_ticks = ["tick_direction", "tick_length", "tick_width", "tick_color", "tick_alpha", "tick_sides",
                      "tick_label_sides", "tick_label_size", "tick_label_color", "tick_label_alpha",
                      "tick_label_weight", "tick_label_italic", "tick_label_font", "tick_label_rotation",
-                     "tick_label_pad", "minor_ticks", "minor_tick_length", "minor_tick_count", "x_tick_step",
-                     "y_tick_step", "x_tick_format", "y_tick_format"]
+                     "tick_label_pad", "minor_ticks", "minor_tick_length", "minor_tick_count", "x_ticks_at",
+                     "y_ticks_at", "x_tick_step", "y_tick_step", "x_tick_count", "y_tick_count", "x_tick_format",
+                     "y_tick_format"]
     tick_keys = ["tick_direction", "tick_length", "tick_width", "tick_color", "tick_alpha", "tick_label_size",
                  "tick_label_color", "tick_label_alpha", "tick_label_weight", "tick_label_italic",
                  "tick_label_font", "tick_label_rotation", "tick_label_pad", "minor_ticks", "minor_tick_length",
@@ -220,7 +234,7 @@ CMYK file use `color_mode="cmyk"` with tiff or jpg (see **Saving**).
 
 {section(["font", "font_size", "font_weight"])}
 
-## Box (the frame around the plot)
+## Box (the lines around the plot)
 
 General:
 
@@ -290,14 +304,14 @@ The text is set with `title`.
 
 When and where:
 
-{section(["legend", "legend_location", "legend_position", "legend_columns", "legend_order"])}
+{section(["legend", "legend_location", "legend_position", "legend_columns", "legend_order", "legend_hide"])}
 
 Entry text and heading:
 
 {section(["legend_size", "legend_weight", "legend_color", "legend_alpha", "legend_italic", "legend_font",
           "legend_title", "legend_title_size", "legend_title_weight"])}
 
-Frame:
+Legend box:
 
 {section(["legend_box", "legend_box_color", "legend_box_width", "legend_box_alpha", "legend_box_round",
           "legend_fill", "legend_fill_alpha", "legend_shadow"])}
@@ -313,14 +327,64 @@ per spectrum).
 
 ## Spectra (data lines)
 
-{section(["line_width", "line_style", "marker", "marker_size", "colors", "cmap"])}
+Colours:
 
-More line settings (transparency, MATLAB-style codes such as `"o--"`, one
-look per spectrum) are planned; see `docs/plotting_wishlist.md`.
+{section(["colors", "cmap", "line_color"])}
+
+Palettes for `colors`: {", ".join(f"`{p}`" for p in PALETTES)}; or any
+matplotlib colour map name, such as `"viridis"`, `"plasma"` or `"coolwarm"`,
+whose colours are spread evenly over the spectra (useful for a series, e.g.
+increasing temperature). With more than 10 spectra the colours always come
+from `cmap`, unless `line_color` is set.
+
+Line:
+
+{section(["line_width", "line_style", "line_alpha", "line_format"])}
+
+Markers (the points on a line):
+
+{section(["marker", "marker_size", "marker_color", "marker_fill", "marker_alpha", "marker_edge_width",
+          "marker_every"])}
+
+Emphasized spectra and fill:
+
+{section(["emphasize_width", "faded_alpha", "fill", "fill_color", "fill_alpha"])}
+
+**One value or one per spectrum.** {", ".join(f"`{n}`" for n in PER_SPECTRUM)}
+take either one value for every spectrum or a list with one value per
+spectrum. A shorter list starts again from its beginning, so
+`"line_style": ["-", "--"]` gives solid, dashed, solid, dashed ... One colour
+written as numbers (`[0, 114, 189]`) is one colour, not a list.
+
+**MATLAB codes** (`line_format`), exactly as in MATLAB's `plot(x, y, "o--")`.
+A code joins up to three parts in any order: a line type, a marker and a
+colour letter. A marker without a line type draws markers only (no line),
+as in MATLAB.
+
+| Part | Codes |
+|---|---|
+| line type | `-` solid, `--` dashed, `:` dotted, `-.` dash-dot |
+| marker | `o` circle, `+` plus, `*` asterisk, `.` point, `x` cross, `s` square, `d` diamond, `^` `v` `>` `<` triangles, `p` five-pointed star, `h` hexagon, `_` `\\|` short lines |
+| colour | `r` red, `g` green, `b` blue, `c` cyan, `m` magenta, `y` yellow, `k` black, `w` white (MATLAB's pure colours) |
+
+Examples: `"o-"` circles joined by a line; `"*--"` asterisks on a dashed
+line; `"."` points only; `"r:"` red dotted line; `"ks-"` black squares on a
+line. `line_format` replaces `marker` and `line_style`, and `line_color`
+when it has a colour letter. `marker_every` is worth setting with markers:
+a spectrum has hundreds of points, and a marker on each one hides the line.
+
+**Emphasize** is an argument of `plot`, not a style setting:
+`c.plot(emphasize=[0, 2])` or `emphasize=["Sample B"]` (numbers count from 0;
+names are the spectrum names or `labels`). On the website it goes at the top
+level of the body: `"emphasize": [1]`.
+
+{picture("lines_format.png")}
+{picture("lines_emphasize.png")}
+{picture("lines_fill.png")}
 
 ## Reference lines at zero
 
-{section(["zero_lines", "zero_line_style", "zero_line_width", "zero_line_color"])}
+{section(["zero_lines", "zero_line_style", "zero_line_width", "zero_line_color", "zero_line_alpha"])}
 
 ## Saving
 

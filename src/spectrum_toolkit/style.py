@@ -60,7 +60,21 @@ PALETTES: dict[str, list] = {
     "colorblind": ["#0072B2", "#E69F00", "#009E73", "#D55E00", "#CC79A7", "#56B4E9", "#F0E442", "#000000"],
     # Black and greys, for print in black and white.
     "black": ["#000000", "#555555", "#888888", "#bbbbbb"],
+    # matplotlib's "tab20": ten colours, each followed by a lighter version (pairs of related spectra).
+    "tab20": ["#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c", "#98df8a", "#d62728", "#ff9896",
+              "#9467bd", "#c5b0d5", "#8c564b", "#c49c94", "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7",
+              "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"],
+    # ColorBrewer "Dark2": darker colours that stay readable on white and in print.
+    "dark": ["#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02", "#a6761d", "#666666"],
 }
+
+# MATLAB line codes (as in plot(x, y, "o--")): line types, markers and colour letters.
+MATLAB_LINES = ("--", "-.", "-", ":")                    # longest first, so "--" is not read as "-"
+MATLAB_MARKERS = {"o": "o", "+": "+", "*": (6, 2, 0), ".": ".", "x": "x", "_": "_", "|": "|",
+                  "s": "s", "d": "D", "^": "^", "v": "v", ">": ">", "<": "<", "p": "*", "h": "h"}
+#   "*" is MATLAB's asterisk (6 thin arms), "d" its diamond, "p" its five-pointed star.
+MATLAB_COLORS = {"r": (1, 0, 0), "g": (0, 1, 0), "b": (0, 0, 1), "c": (0, 1, 1), "m": (1, 0, 1),
+                 "y": (1, 1, 0), "k": (0, 0, 0), "w": (1, 1, 1)}
 
 # Figure sizes by name, (width, height) in centimetres.
 SIZES: dict[str, tuple[float, float]] = {
@@ -97,7 +111,7 @@ SETTINGS: dict[str, tuple[Any, str]] = {
     "label_weight": ("normal", '"normal" or "bold": axis labels'),
     "label_color": ("black", "axis label colour"),
     "label_alpha": (1.0, "axis label transparency, 0 to 1"),
-    "label_italic": (False, "axis labels in italics"),
+    "label_italic": (False, "axis labels in italics: true or false"),
     "label_font": (None, "axis label font; None = font"),
     "label_pad": (4.0, "distance between the axis label and the tick labels, in points"),
     # title
@@ -105,11 +119,11 @@ SETTINGS: dict[str, tuple[Any, str]] = {
     "title_weight": (None, '"normal" or "bold"; None = font_weight'),
     "title_color": ("black", "title colour"),
     "title_alpha": (1.0, "title transparency, 0 to 1"),
-    "title_italic": (False, "title in italics"),
+    "title_italic": (False, "title in italics: true or false"),
     "title_font": (None, "title font; None = font"),
     "title_location": ("center", '"left", "center" or "right"'),
     "title_pad": (6.0, "distance between the title and the plot, in points"),
-    # box (the frame around the plot); bottom_box_..., top_box_... (below) set one side
+    # box (the lines around the plot); bottom_box_..., top_box_... (below) set one side
     "box": ("open", '"closed" (all four sides), "open" (left and bottom) or "none"'),
     "box_width": (0.8, "box line width in points"),
     "box_color": ("black", "box line colour"),
@@ -123,74 +137,99 @@ SETTINGS: dict[str, tuple[Any, str]] = {
     # left_tick_... / right_tick_... one side (below), each falling back to these
     "tick_direction": ("out", '"in", "out" or "both" (through the box line); old name: ticks'),
     "tick_length": (4.0, "tick length in points"),
-    "tick_width": (None, "tick line width; None = box_width"),
-    "tick_color": (None, "tick mark colour; None = box_color"),
-    "tick_alpha": (1.0, "tick mark transparency, 0 to 1"),
-    "tick_sides": (("bottom", "left"), 'sides with tick marks: any of "bottom", "top", "left", "right"'),
-    "tick_label_sides": (("bottom", "left"), "sides with tick labels (numbers)"),
+    "tick_width": (None, "tick width in points; None = box_width"),
+    "tick_color": (None, "tick colour; None = box_color"),
+    "tick_alpha": (1.0, "tick transparency, 0 to 1"),
+    "tick_sides": (("bottom", "left"), 'sides with ticks: any of "bottom", "top", "left", "right"'),
+    "tick_label_sides": (("bottom", "left"), 'sides with tick labels (numbers): any of "bottom", "top", "left", "right"'),
     "tick_label_size": (None, "tick label (number) size in points; None = font_size"),
     "tick_label_color": ("black", "tick label colour"),
     "tick_label_alpha": (1.0, "tick label transparency, 0 to 1"),
     "tick_label_weight": (None, '"normal" or "bold"; None = font_weight'),
-    "tick_label_italic": (False, "tick labels in italics"),
+    "tick_label_italic": (False, "tick labels in italics: true or false"),
     "tick_label_font": (None, "tick label font; None = font"),
     "tick_label_rotation": (0, "tick label rotation in degrees, e.g. 45 or 90"),
     "tick_label_pad": (3.5, "distance between tick and tick label, in points"),
-    "minor_ticks": (False, "small ticks between the numbered ones"),
+    "minor_ticks": (False, "small ticks between the numbered ones: true or false"),
     "minor_tick_length": (None, "minor tick length in points; None = 0.55 x tick_length"),
     "minor_tick_count": (None, "number of minor ticks between two numbered ticks; None = automatic"),
+    # where the numbered ticks go: x_ticks_at, else x_tick_step, else x_tick_count, else automatic
+    "x_ticks_at": (None, "x tick positions, e.g. [400, 800, 1200, 1600]; None = automatic"),
+    "y_ticks_at": (None, "y tick positions, e.g. [0, 0.5, 1]; None = automatic"),
     "x_tick_step": (None, "distance between x ticks, e.g. 200; None = automatic"),
-    "y_tick_step": (None, "distance between y ticks; None = automatic"),
-    "x_tick_format": (None, 'number format of x tick labels, e.g. "%.2f"; None = automatic'),
-    "y_tick_format": (None, "number format of y tick labels"),
+    "y_tick_step": (None, "distance between y ticks, e.g. 0.25; None = automatic"),
+    "x_tick_count": (None, "about how many numbered x ticks, e.g. 5 (rounded to good numbers); None = automatic"),
+    "y_tick_count": (None, "about how many numbered y ticks, e.g. 4 (rounded to good numbers); None = automatic"),
+    "x_tick_format": (None, 'number format of x tick labels, e.g. "%.0f"; None = automatic'),
+    "y_tick_format": (None, 'number format of y tick labels, e.g. "%.2f"; None = automatic'),
     # grid
-    "grid": (True, "grid lines on or off"),
-    "grid_color": ("#b0b0b0", "grid colour"),
-    "grid_style": ("-", '"-", "--", ":" or "-."'),
-    "grid_width": (0.6, "grid line width"),
-    "grid_alpha": (0.4, "grid opacity 0 to 1"),
-    # spectra (data lines)
-    "line_width": (1.0, "spectrum line width in points"),
-    "line_style": ("-", '"-" solid, "--" dashed, ":" dotted, "-." dash-dot, "none" (markers only)'),
-    "marker": (None, 'point marker: None, "o", ".", "s", "^", "x" ...'),
-    "marker_size": (3.0, "marker size in points"),
-    "colors": ("matplotlib", "colours of successive lines: a name in PALETTES or a list of colours"),
+    "grid": (True, "grid lines: true or false"),
+    "grid_color": ("#b0b0b0", "grid line colour"),
+    "grid_style": ("-", 'grid line type: "-", "--", ":" or "-."'),
+    "grid_width": (0.6, "grid line width in points"),
+    "grid_alpha": (0.4, "grid line transparency, 0 to 1"),
+    # spectra (data lines). The settings in PER_SPECTRUM (below) also take a list:
+    # one value per spectrum, repeated from the start when the list is shorter.
+    "line_color": (None, "spectrum line colour (or a list, one per spectrum); None = the colours of colors"),
+    "line_width": (1.0, "spectrum line width in points (or a list)"),
+    "line_style": ("-", 'spectrum line type: "-", "--", ":", "-." or "none" (markers only) (or a list)'),
+    "line_alpha": (None, "spectrum line transparency, 0 to 1 (or a list); "
+                         "None = solid, or 0.35 for more than 200 spectra"),
+    "line_format": (None, 'MATLAB short code for marker, line type and colour together, e.g. "o-", "*--", ".", '
+                          '"r:" (or a list); replaces marker and line_style, and line_color when it has a colour letter'),
+    "marker": (None, 'point marker: None, "o", ".", "s", "^", "v", "d", "x", "+", "*" ... (or a list)'),
+    "marker_size": (3.0, "marker size in points (or a list)"),
+    "marker_color": (None, "marker edge colour (or a list); None = line colour"),
+    "marker_fill": (None, 'colour inside the markers (or a list); "none" = hollow; None = marker_color'),
+    "marker_alpha": (None, "marker transparency, 0 to 1 (or a list); None = line_alpha"),
+    "marker_edge_width": (1.0, "marker edge line width in points"),
+    "marker_every": (None, "a marker on every n-th point only, e.g. 20; None = on every point"),
+    "emphasize_width": (None, "line width of emphasized spectra (plot's emphasize) in points; None = 2 x line_width"),
+    "faded_alpha": (0.3, "transparency of the other spectra when some are emphasized, 0 to 1"),
+    "fill": (False, "fill the area under each spectrum: true or false"),
+    "fill_color": (None, "fill colour; None = line colour"),
+    "fill_alpha": (0.2, "fill transparency, 0 to 1"),
+    "colors": ("matplotlib", "colours of successive spectra: a name in PALETTES, a colour map name "
+                             '(e.g. "viridis", spread over the spectra) or a list of colours'),
     "cmap": ("viridis", "colour map for many spectra (more than 10) and images"),
     # legend: when and where
     "legend": ("auto", 'True, False or "auto" (shown for 2 to 10 lines)'),
-    "legend_location": ("best", 'e.g. "best", "upper right", "lower left", "outside" (right of the plot)'),
+    "legend_location": ("best", 'e.g. "best", "upper right", "lower left"; outside the box: "outside right" '
+                                '(or "outside"), "outside top", "outside bottom"'),
     "legend_position": (None, "exact place of the legend's corner as [x, y], 0 to 1 of the plot; overrides legend_location"),
     "legend_columns": (1, "number of columns of legend entries"),
     "legend_order": ("normal", '"normal" (as drawn) or "reverse"'),
+    "legend_hide": (None, 'legend entries to leave out: a list of spectrum numbers (0 = first) or names'),
     # legend: entry text
     "legend_size": (9, "legend text size"),
     "legend_weight": ("normal", '"normal" or "bold"'),
     "legend_color": ("black", "legend text colour"),
     "legend_alpha": (1.0, "legend text transparency, 0 to 1"),
-    "legend_italic": (False, "legend text in italics"),
+    "legend_italic": (False, "legend text in italics: true or false"),
     "legend_font": (None, "legend font; None = font"),
     # legend: title
     "legend_title": (None, "a heading above the legend entries"),
     "legend_title_size": (None, "legend heading size; None = legend_size"),
     "legend_title_weight": ("bold", '"normal" or "bold"'),
-    # legend: frame
-    "legend_box": (False, "frame around the legend"),
-    "legend_box_color": ("#cccccc", "frame line colour"),
-    "legend_box_width": (0.8, "frame line width"),
-    "legend_box_alpha": (1.0, "frame line transparency, 0 to 1"),
-    "legend_box_round": (True, "rounded frame corners"),
-    "legend_fill": ("white", 'colour inside the legend frame; "none" for no fill'),
+    # legend: legend box
+    "legend_box": (False, "box around the legend: true or false"),
+    "legend_box_color": ("#cccccc", "legend box line colour"),
+    "legend_box_width": (0.8, "legend box line width in points"),
+    "legend_box_alpha": (1.0, "legend box line transparency, 0 to 1"),
+    "legend_box_round": (True, "rounded legend box corners: true or false"),
+    "legend_fill": ("white", 'colour inside the legend box; "none" for no fill'),
     "legend_fill_alpha": (0.8, "legend fill transparency, 0 to 1"),
-    "legend_shadow": (False, "a shadow behind the legend frame"),
+    "legend_shadow": (False, "a shadow behind the legend box: true or false"),
     # legend: entry layout
     "legend_line_length": (2.0, "length of the line sample, in font sizes"),
     "legend_marker_scale": (1.0, "marker size in the legend relative to the plot"),
     "legend_spacing": (0.5, "vertical space between entries, in font sizes"),
     # reference lines
-    "zero_lines": (None, 'dashed lines at 0: None, "x" (horizontal y=0), "y" (vertical x=0) or "both"'),
-    "zero_line_style": ("--", "style of the zero lines"),
-    "zero_line_width": (1.0, "width of the zero lines"),
-    "zero_line_color": ("black", "colour of the zero lines"),
+    "zero_lines": (None, 'lines marking zero: None (none), "x" (horizontal line at y = 0), "y" (vertical line at x = 0) or "both"'),
+    "zero_line_style": ("--", 'zero line type: "-", "--", ":" or "-."'),
+    "zero_line_width": (1.0, "zero line width in points"),
+    "zero_line_color": ("black", "zero line colour"),
+    "zero_line_alpha": (1.0, "zero line transparency, 0 to 1"),
     # saving
     "dpi": (300, "dots per inch for png, tiff and jpg"),
     "format": ("png", "file type when the name has no extension: png, tiff, jpg, pdf, svg, eps"),
@@ -220,14 +259,14 @@ for _axis in ("x", "y"):
 for _side in SIDES:
     _a = AXIS_OF_SIDE[_side]
     # bottom_ticks, top_tick_labels: on/off for one side (None = tick_sides / tick_label_sides)
-    SETTINGS[f"{_side}_ticks"] = (None, f"tick marks on the {_side} side: True/False; None = tick_sides")
-    SETTINGS[f"{_side}_tick_labels"] = (None, f"tick labels on the {_side} side: True/False; "
+    SETTINGS[f"{_side}_ticks"] = (None, f"ticks on the {_side} side: true or false; None = tick_sides")
+    SETTINGS[f"{_side}_tick_labels"] = (None, f"tick labels on the {_side} side: true or false; "
                                               "None = tick_label_sides")
     # top_tick_length, right_tick_color, ... : one side
     for _key in _TICK_KEYS:
         SETTINGS[f"{_side}_{_key}"] = (None, f"{_key} for the {_side} side only; None = {_a}_{_key}")
     # left_box, top_box_color, ... : one side of the box
-    SETTINGS[f"{_side}_box"] = (None, f"box line on the {_side} side: True/False; None = box")
+    SETTINGS[f"{_side}_box"] = (None, f"box line on the {_side} side: true or false; None = box")
     for _key in _BOX_KEYS:
         SETTINGS[f"{_side}_{_key}"] = (None, f"{_key} for the {_side} side only; None = {_key}")
 
@@ -240,6 +279,9 @@ CHOICES: dict[str, tuple] = {
 }
 _WEIGHTS = ("normal", "bold")
 _LINE_STYLES = ("-", "--", ":", "-.")
+_LEGEND_PLACES = ("best", "upper right", "upper left", "lower left", "lower right", "right", "center left",
+                  "center right", "lower center", "upper center", "center", "outside", "outside right",
+                  "outside top", "outside bottom")
 
 DEFAULTS: dict[str, Any] = {k: v for k, (v, _) in SETTINGS.items()}
 
@@ -289,30 +331,65 @@ def _check_values(look: dict) -> None:
     for name, value in look.items():
         if value is None:                                            # not set: nothing to check
             continue
-        base = name
-        for prefix in SIDES + ("x", "y"):                            # top_tick_direction -> tick_direction
-            if name.startswith(prefix + "_") and name[len(prefix) + 1:] in SETTINGS \
-                    and name != f"{prefix}_box":                     # left_box is on/off, not like "box"
-                base = name[len(prefix) + 1:]
-        if base in CHOICES and value not in CHOICES[base]:
-            raise ValueError(f"{name} must be one of {', '.join(map(repr, CHOICES[base]))}; got {value!r}.")
-        if name.endswith("_weight") and value not in _WEIGHTS:
-            raise ValueError(f'{name} must be "normal" or "bold"; got {value!r}.')
-        if name.endswith("box_style") and value not in _LINE_STYLES:
-            raise ValueError(f"{name} must be one of {', '.join(map(repr, _LINE_STYLES))}; got {value!r}.")
-        if name.endswith("_alpha"):
-            if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
-                raise ValueError(f"{name} is a transparency from 0 (invisible) to 1 (solid); got {value!r}.")
-        if (name.endswith("_color") or name in ("background", "plot_background", "legend_fill")) \
-                and value != "none":
-            to_rgba(value, name=name)                                # raises a clear error if not a colour
-        if name.endswith(("_length", "_width", "_size", "_pad", "_rotation", "_spacing", "_scale")) \
-                and name != "size" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
-            raise ValueError(f"{name} must be a number; got {value!r}.")
-        if (name in ("legend_box", "legend_shadow", "legend_box_round", "minor_ticks")
-                or name.endswith(("_italic", "_ticks", "_tick_labels", "_box", "minor_ticks"))) \
-                and name != "box" and not isinstance(value, bool):
-            raise ValueError(f"{name} must be true or false; got {value!r}.")
+        if name in PER_SPECTRUM and _is_list(name, value):          # one value per spectrum: check each
+            if not value:
+                raise ValueError(f"{name}: the list is empty; give one value, or one per spectrum.")
+            for one in value:
+                _check_one(name, one)
+        else:
+            _check_one(name, value)
+
+
+def _check_one(name: str, value) -> None:
+    """Check one value of one setting (see _check_values)."""
+    if value is None:
+        return
+    base = name
+    for prefix in SIDES + ("x", "y"):                                # top_tick_direction -> tick_direction
+        if name.startswith(prefix + "_") and name[len(prefix) + 1:] in SETTINGS \
+                and name != f"{prefix}_box":                         # left_box is on/off, not like "box"
+            base = name[len(prefix) + 1:]
+    if base in CHOICES and value not in CHOICES[base]:
+        raise ValueError(f"{name} must be one of {', '.join(map(repr, CHOICES[base]))}; got {value!r}.")
+    if name.endswith("_weight") and value not in _WEIGHTS:
+        raise ValueError(f'{name} must be "normal" or "bold"; got {value!r}.')
+    if name.endswith("box_style") and value not in _LINE_STYLES:
+        raise ValueError(f"{name} must be one of {', '.join(map(repr, _LINE_STYLES))}; got {value!r}.")
+    if name == "line_style" and value not in _LINE_STYLES + ("none",):
+        raise ValueError(f"line_style must be one of {', '.join(map(repr, _LINE_STYLES + ('none',)))}; got {value!r}.")
+    if name == "line_format":
+        line_format(value)                                           # raises a clear error if not a code
+    if name == "marker":
+        from matplotlib.markers import MarkerStyle
+        try:
+            MarkerStyle(value)
+        except (ValueError, TypeError):
+            raise ValueError(f'marker {value!r} is not a marker. Use e.g. "o", ".", "s", "^", "v", "d", "x", "+", '
+                             '"*" or None.') from None
+    if name.endswith("_count") and (not isinstance(value, int) or isinstance(value, bool) or value < 1):
+        raise ValueError(f"{name} must be a whole number of 1 or more; got {value!r}.")
+    if name.endswith("_ticks_at") and (not isinstance(value, (list, tuple)) or not all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in value)):
+        raise ValueError(f"{name} must be a list of numbers, e.g. [400, 800, 1200]; got {value!r}.")
+    if name == "legend_location" and value not in _LEGEND_PLACES:
+        raise ValueError(f"legend_location must be one of {', '.join(map(repr, _LEGEND_PLACES))}; got {value!r}.")
+    if name == "legend_hide" and not isinstance(value, (list, tuple)):
+        raise ValueError(f'legend_hide must be a list of spectrum numbers or names, e.g. [0, "blank"]; got {value!r}.')
+    if name == "marker_every" and (not isinstance(value, int) or isinstance(value, bool) or value < 1):
+        raise ValueError(f"marker_every must be a whole number of 1 or more; got {value!r}.")
+    if name.endswith("_alpha"):
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
+            raise ValueError(f"{name} is a transparency from 0 (invisible) to 1 (solid); got {value!r}.")
+    if (name.endswith("_color") or name in ("background", "plot_background", "legend_fill", "marker_fill")) \
+            and value != "none":
+        to_rgba(value, name=name)                                    # raises a clear error if not a colour
+    if name.endswith(("_length", "_width", "_size", "_pad", "_rotation", "_spacing", "_scale")) \
+            and name != "size" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
+        raise ValueError(f"{name} must be a number; got {value!r}.")
+    if (name in ("legend_box", "legend_shadow", "legend_box_round", "minor_ticks", "fill")
+            or name.endswith(("_italic", "_ticks", "_tick_labels", "_box", "minor_ticks"))) \
+            and name != "box" and not isinstance(value, bool):
+        raise ValueError(f"{name} must be true or false; got {value!r}.")
 
 
 # ------------------------------------------------------------------ colours in any form
@@ -415,14 +492,118 @@ def save_style(style: str | dict, path: str | Path, **changes: Any) -> Path:
     return path
 
 
-def _colors(look: dict) -> list:
-    """The list of line colours of a style."""
+def _colors(look: dict, n: int = 8) -> list:
+    """The list of line colours of a style (n colours when colors is a colour map)."""
     c = look["colors"]
     if isinstance(c, str):
-        if c not in PALETTES:
-            raise ValueError(f"Unknown colours {c!r}. Choose one of: {', '.join(PALETTES)}, or give a list.")
-        return PALETTES[c]
+        if c in PALETTES:
+            return PALETTES[c]
+        import matplotlib
+        if c in matplotlib.colormaps:                                # a colour map: spread over the spectra
+            import numpy as np
+            return [tuple(v) for v in matplotlib.colormaps[c](np.linspace(0, 0.9, max(n, 1)))]
+        raise ValueError(f"colors: unknown palette {c!r}. Choose one of: {', '.join(PALETTES)}, "
+                         'a colour map name such as "viridis", or give a list.')
     return [to_rgba(v, name="colors") for v in c]                  # any colour form, also cmyk(...)
+
+
+# ------------------------------------------------------------------ spectral lines
+# Settings that take one value for all spectra, or a list with one value per spectrum.
+PER_SPECTRUM = ("line_color", "line_width", "line_style", "line_alpha", "line_format", "marker",
+                "marker_size", "marker_color", "marker_fill", "marker_alpha")
+
+
+def _is_one_colour(value) -> bool:
+    """True for one colour (also an RGB list such as [0, 0.45, 0.74]), False for a list of colours."""
+    try:
+        to_rgba(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_list(name: str, value) -> bool:
+    """Is this value a list with one value per spectrum (not one value for all)?"""
+    if not isinstance(value, (list, tuple)):
+        return False
+    if name in ("line_color", "marker_color", "marker_fill"):         # [0, 114, 189] is one colour
+        return not _is_one_colour(value)
+    return True
+
+
+def _for_spectrum(look: dict, name: str, k: int):
+    """The value of a setting for spectrum number k (counted from 0); lists repeat from the start."""
+    value = look[name]
+    return value[k % len(value)] if _is_list(name, value) else value
+
+
+def line_format(code: str) -> tuple[str, Any, tuple | None]:
+    """Read a MATLAB line code into (line type, marker, colour).
+
+    Like MATLAB: "o-" circles joined by a line, "*--" asterisks and dashes,
+    "." dots only (a marker without a line type draws no line), "r:" a red
+    dotted line. The parts may come in any order. Colour is None when the
+    code has no colour letter.
+
+    >>> line_format("o--")
+    ('--', 'o', None)
+    >>> line_format(".")
+    ('none', '.', None)
+    >>> line_format("r-.")
+    ('-.', None, (1, 0, 0))
+    """
+    if not isinstance(code, str) or not code.strip():
+        raise ValueError(f'line_format must be a code such as "o-", "*--", "." or "r:"; got {code!r}.')
+    rest, style = code.strip(), None
+    for kind in MATLAB_LINES:
+        if kind in rest:
+            style, rest = kind, rest.replace(kind, "", 1)
+            break
+    marker = colour = None
+    for letter in rest:
+        if letter in MATLAB_MARKERS and marker is None:
+            marker = MATLAB_MARKERS[letter]
+        elif letter in MATLAB_COLORS and colour is None:
+            colour = MATLAB_COLORS[letter]
+        else:
+            raise ValueError(f"line_format {code!r}: {letter!r} is not understood. Line types: - -- : -. ; "
+                             f"markers: {' '.join(MATLAB_MARKERS)} ; colours: {' '.join(MATLAB_COLORS)}.")
+    if style is None:
+        style = "none" if marker is not None else "-"                # MATLAB: a marker alone draws no line
+    return style, marker, colour
+
+
+def line_settings(look: dict, k: int, color) -> dict:
+    """matplotlib settings for drawing spectrum number k (counted from 0).
+
+    color is this spectrum's colour from the palette; line_color, and a
+    colour letter in line_format, replace it. Transparency goes into the
+    colours, so the line and the markers can each have their own.
+    """
+    style, marker = _for_spectrum(look, "line_style", k), _for_spectrum(look, "marker", k)
+    own = _for_spectrum(look, "line_color", k)
+    color = own if own is not None else color                        # None in a list: the palette colour
+    code = _for_spectrum(look, "line_format", k)
+    if code is not None:
+        style, marker, letter = line_format(code)
+        color = letter if letter is not None else color
+    alpha = _for_spectrum(look, "line_alpha", k)
+    edge = _for_spectrum(look, "marker_color", k)
+    edge = color if edge is None else edge                           # markers default to the line colour
+    marker_alpha = _for_spectrum(look, "marker_alpha", k)
+    marker_alpha = alpha if marker_alpha is None else marker_alpha
+    inside = _for_spectrum(look, "marker_fill", k)
+    inside = edge if inside is None else inside                      # filled with the edge colour
+    return dict(color=to_rgba(color, alpha),
+                linestyle="None" if style == "none" else style,
+                linewidth=_for_spectrum(look, "line_width", k),
+                # "none" line type without a marker would draw nothing: use small dots then
+                marker=marker if marker is not None else ("." if style == "none" else "None"),
+                markersize=_for_spectrum(look, "marker_size", k),
+                markeredgewidth=look["marker_edge_width"],
+                markeredgecolor=to_rgba(edge, marker_alpha),
+                markerfacecolor="none" if inside == "none" else to_rgba(inside, marker_alpha),
+                markevery=look["marker_every"])
 
 
 def _size_inches(look: dict) -> tuple[float, float]:
@@ -498,6 +679,7 @@ def rc_settings(look: dict) -> dict[str, Any]:
     plot_bg = _fill(look["plot_background"] or look["background"],
                     look["plot_background_alpha"] if look["plot_background_alpha"] is not None
                     else look["background_alpha"])
+    first = line_settings(look, 0, "black")                      # lines drawn by compare and scatter
     rc = {
         "figure.figsize": _size_inches(look),
         "font.family": font,
@@ -527,11 +709,12 @@ def rc_settings(look: dict) -> dict[str, Any]:
         "grid.linestyle": look["grid_style"],
         "grid.linewidth": look["grid_width"],
         "grid.alpha": look["grid_alpha"],
-        "lines.linewidth": look["line_width"],
-        "lines.linestyle": "None" if look["line_style"] == "none" else look["line_style"],
-        # "none" line style without a marker would draw nothing: use small dots then.
-        "lines.marker": look["marker"] or ("." if look["line_style"] == "none" else "None"),
-        "lines.markersize": look["marker_size"],
+        "lines.linewidth": first["linewidth"],
+        "lines.linestyle": first["linestyle"],
+        # rcParams take only text markers: MATLAB's asterisk (a shape, not text) as the text "*" sign
+        "lines.marker": first["marker"] if isinstance(first["marker"], str) else r"$\ast$",
+        "lines.markersize": first["markersize"],
+        "lines.markeredgewidth": first["markeredgewidth"],
         "image.cmap": look["cmap"],
         "legend.fontsize": look["legend_size"],
         "legend.frameon": bool(look["legend_box"]),
@@ -711,15 +894,20 @@ def finish_axes(ax, look: dict | None) -> None:
         ax.set_box_aspect(1)
     elif look["aspect"] is not None:
         ax.set_box_aspect(float(look["aspect"]))
-    for axis, step, fmt in ((ax.xaxis, look["x_tick_step"], look["x_tick_format"]),
-                            (ax.yaxis, look["y_tick_step"], look["y_tick_format"])):
-        if step:
+    for name, axis in (("x", ax.xaxis), ("y", ax.yaxis)):
+        at, step, count = look[f"{name}_ticks_at"], look[f"{name}_tick_step"], look[f"{name}_tick_count"]
+        fmt = look[f"{name}_tick_format"]
+        if at is not None:                                       # exact positions
+            axis.set_major_locator(mticker.FixedLocator(at))
+        elif step:                                               # a fixed distance
             axis.set_major_locator(mticker.MultipleLocator(step))
+        elif count:                                              # about this many, at good numbers
+            axis.set_major_locator(mticker.MaxNLocator(nbins=count))
         if fmt:
             axis.set_major_formatter(mticker.FormatStrFormatter(fmt))
     z = look["zero_lines"]
-    kw = dict(color=to_rgba(look["zero_line_color"]), ls=look["zero_line_style"], lw=look["zero_line_width"],
-              zorder=0.5, marker="None")
+    kw = dict(color=to_rgba(look["zero_line_color"], look["zero_line_alpha"]), ls=look["zero_line_style"],
+              lw=look["zero_line_width"], zorder=0.5, marker="None")
     if z in ("x", "both"):
         ax.axhline(0, **kw)
     if z in ("y", "both"):
@@ -730,13 +918,43 @@ def finish_axes(ax, look: dict | None) -> None:
     _style_box(ax, look, twin)
     _style_ticks(ax, look, twin)
     _style_labels_and_title(ax, look)
+    if look["legend_location"] == "outside top" and ax.get_legend() is not None:
+        _legend_on_top(ax, look)
+    if look["legend_location"] == "outside bottom" and ax.get_legend() is not None:
+        leg = ax.get_legend()                                    # just below the x label, wherever it ends
+        leg.set_visible(False)
+        bottom = ax.get_tightbbox(ax.figure.canvas.get_renderer()).y0
+        leg.set_visible(True)
+        y = ax.transAxes.inverted().transform((0, bottom - 4 * ax.figure.dpi / 72))[1]
+        leg.set_bbox_to_anchor((0.5, y), transform=ax.transAxes)
+
+
+def _legend_on_top(ax, look: dict) -> None:
+    """Legend above the box: above any top tick labels, with the title moved above the legend."""
+    leg = ax.get_legend()
+    renderer = ax.figure.canvas.get_renderer()
+    leg.set_visible(False)
+    title = ax.title if ax.title.get_text() else (ax._left_title if ax._left_title.get_text() else ax._right_title)
+    title.set_visible(False)
+    top = ax.get_tightbbox(renderer).y1                          # box, ticks and tick labels, without the two
+    leg.set_visible(True)
+    title.set_visible(True)
+    gap = 4 * ax.figure.dpi / 72                                 # 4 points
+    y = ax.transAxes.inverted().transform((0, top + gap))[1]
+    leg.set_bbox_to_anchor((0.5, y), transform=ax.transAxes)
+    height = leg.get_window_extent(renderer).height             # pixels
+    above_box = top - ax.get_window_extent(renderer).y1
+    # title distance from the box (points): what sticks out above the box, the legend, and the title's own pad
+    title.set_y(1.0)
+    ax.set_title(title.get_text(), loc=look["title_location"],
+                 pad=(above_box + gap + height) * 72 / ax.figure.dpi + look["title_pad"])
 
 
 def legend(ax, look: dict | None, n_lines: int, force: bool | str | None = None) -> None:
     """Draw the legend according to the style ("auto": for 2 to 10 lines).
 
     Every part has its own settings: place, columns, order, entry text, title,
-    frame (line and fill) and the size of the line and marker samples.
+    legend box (line and fill) and the size of the line and marker samples.
     """
     show = look["legend"] if look else "auto"
     if force is not None and force != "auto":
@@ -748,13 +966,20 @@ def legend(ax, look: dict | None, n_lines: int, force: bool | str | None = None)
         return
     from matplotlib.font_manager import FontProperties
     handles, labels = ax.get_legend_handles_labels()
+    hide = look["legend_hide"] or []
+    keep = [i for i, label in enumerate(labels) if i not in hide and label not in hide]
+    handles, labels = [handles[i] for i in keep], [labels[i] for i in keep]
     if look["legend_order"] == "reverse":
         handles, labels = handles[::-1], labels[::-1]
     where = {}
     if look["legend_position"] is not None:                      # exact corner, 0-1 of the plot
         where = {"loc": "lower left", "bbox_to_anchor": tuple(look["legend_position"])}
-    elif look["legend_location"] == "outside":
+    elif look["legend_location"] in ("outside", "outside right"):
         where = {"loc": "upper left", "bbox_to_anchor": (1.02, 1)}
+    elif look["legend_location"] == "outside top":              # above the box, below the title
+        where = {"loc": "lower center", "bbox_to_anchor": (0.5, 1.02)}    # final place set in finish_axes
+    elif look["legend_location"] == "outside bottom":           # below the x label
+        where = {"loc": "upper center", "bbox_to_anchor": (0.5, -0.2)}    # moved under the x label in finish_axes
     else:
         where = {"loc": look["legend_location"]}
     text_font = FontProperties(family=_fonts(look["legend_font"] or look["font"]), size=look["legend_size"],

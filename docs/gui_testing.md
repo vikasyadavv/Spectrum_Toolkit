@@ -123,7 +123,7 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 
 - [ ] L1 `"format": "png", "dpi": 300,`
 - [ ] L2 `"format": "tiff", "dpi": 600,`
-- [ ] L3 `"format": "tiff", "dpi": 1200, "color": "cmyk",` (journal print)
+- [ ] L3 `"format": "tiff", "dpi": 1200, "color_mode": "cmyk",` (journal print)
 - [ ] L4 `"format": "pdf",`  - [ ] L5 `"format": "svg",`  - [ ] L6 `"format": "eps",`
 - [ ] L7 `"format": "jpg",`
 - [ ] L8 `"transparent": true, "format": "png",`

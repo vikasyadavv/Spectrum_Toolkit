@@ -268,3 +268,78 @@ def test_every_setting_is_documented():
     missing = [name for name in SETTINGS if f"`{name}`" not in doc]
     assert not missing, f"Not in docs/plotting.md: {missing}. Run: uv run python scripts/make_plotting_docs.py"
     assert all(meaning for _, meaning in SETTINGS.values())                     # every setting explained
+
+
+# ------------------------------------------------------------------ spectral lines (wish list section 1)
+def test_line_format_reads_matlab_codes():
+    from spectrum_toolkit.style import line_format
+    assert line_format("o-") == ("-", "o", None)
+    assert line_format("*--") == ("--", (6, 2, 0), None)               # MATLAB's asterisk
+    assert line_format(".") == ("none", ".", None)                      # a marker alone: no line
+    assert line_format("--o") == ("--", "o", None)                      # parts in any order
+    assert line_format("ks-.") == ("-.", "s", (0, 0, 0))
+    assert line_format("r") == ("-", None, (1, 0, 0))
+    for bad in ("o-q", "", "oo"):
+        with pytest.raises(ValueError, match="line_format"):
+            line_format(bad)
+
+
+def test_line_settings_reach_each_line():
+    c = SpectrumCollection(np.arange(50.0), np.random.default_rng(0).random((3, 50)), names=["a", "b", "c"])
+    ax = c.plot(line_format=["o-", ".", "s:"], line_color=["red", None], line_alpha=0.5, marker_fill="none",
+                marker_color="blue", marker_every=5, marker_edge_width=2)
+    a, b, cc = ax.get_lines()[:3]
+    assert (a.get_marker(), a.get_linestyle()) == ("o", "-")
+    assert (b.get_marker(), b.get_linestyle()) == (".", "None")       # "." draws points only
+    assert (cc.get_marker(), cc.get_linestyle()) == ("s", ":")
+    assert to_rgb(a.get_color()) == (1, 0, 0) and a.get_color()[3] == 0.5
+    assert to_rgb(b.get_color()) == to_rgb(PALETTES["matplotlib"][1])  # None in the list: palette colour
+    assert to_rgb(cc.get_color()) == (1, 0, 0)                         # the list repeats: red again
+    assert a.get_markerfacecolor() == "none" and to_rgb(a.get_markeredgecolor()) == (0, 0, 1)
+    assert a.get_markevery() == 5 and a.get_markeredgewidth() == 2
+
+
+def test_line_format_colour_letter_and_palettes():
+    c = SpectrumCollection(np.arange(20.0), np.ones((3, 20)))
+    ax = c.plot(line_format="g--", line_color="red")                    # the code's colour letter wins
+    assert to_rgb(ax.get_lines()[0].get_color()) == (0, 1, 0)
+    for name in ("tab20", "dark"):
+        assert to_rgb(c.plot(colors=name).get_lines()[0].get_color()) == to_rgb(PALETTES[name][0])
+    lines = c.plot(colors="viridis").get_lines()[:3]                    # a colour map spread over the spectra
+    assert len({to_rgb(line.get_color()) for line in lines}) == 3
+
+
+@pytest.mark.parametrize("name, value", [
+    ("line_format", "o-q"), ("line_style", "dashed"), ("marker", "smiley"), ("marker_every", 0),
+    ("line_alpha", [1, 2]), ("line_color", ["red", "nocolour"]), ("fill", "yes"), ("line_width", []),
+    ("zero_line_alpha", 2), ("colors", "nopalette"),
+])
+def test_wrong_line_values_are_explained(name, value):
+    with pytest.raises(ValueError, match=name):
+        stk.plot(Spectrum(np.arange(5.0), np.arange(5.0)), **{name: value})
+
+
+def test_one_colour_as_numbers_is_not_a_list():
+    ax = SpectrumCollection(np.arange(5.0), np.ones((2, 5))).plot(line_color=[0, 114, 189])
+    assert {to_rgb(line.get_color()) for line in ax.get_lines()[:2]} == {(0, 114 / 255, 189 / 255)}
+
+
+def test_tick_positions_count_and_legend_hide_and_outside():
+    c = SpectrumCollection(np.linspace(400, 1800, 50), np.random.default_rng(0).random((3, 50)), names=["a", "b", "c"])
+    ax = c.plot(x_ticks_at=[500, 1000, 1500], y_tick_count=2)
+    assert list(ax.get_xticks()) == [500, 1000, 1500]
+    assert len([t for t in ax.get_yticks() if 0 <= t <= 1]) <= 3       # about 2 steps, at good numbers
+    ax = c.plot(x_ticks_at=[500], x_tick_step=100)                       # exact positions win over the step
+    assert list(ax.get_xticks()) == [500]
+    ax = c.plot(legend=True, legend_hide=[0, "c"])
+    assert [t.get_text() for t in ax.get_legend().get_texts()] == ["b"]
+    for place in ("outside right", "outside top", "outside bottom"):
+        leg = c.plot(legend=True, legend_location=place).get_legend()
+        ax = leg.axes
+        ax.figure.canvas.draw()
+        box, inside = leg.get_window_extent(), ax.get_window_extent()
+        assert not box.overlaps(inside)                                  # the legend is outside the box
+    for name, value in (("legend_location", "outside left"), ("x_ticks_at", "400"), ("y_tick_count", 0),
+                        ("legend_hide", 1)):
+        with pytest.raises(ValueError, match=name):
+            c.plot(**{name: value})

@@ -3,7 +3,7 @@
 Everything a figure can show and every setting that changes how it looks.
 This file is written by `scripts/make_plotting_docs.py` from the settings in
 `src/spectrum_toolkit/style.py`, so it always lists every setting
-(219 today). Edit the script, not this file.
+(238 today). Edit the script, not this file.
 
 ## How to use settings
 
@@ -93,7 +93,7 @@ CMYK file use `color_mode="cmyk"` with tiff or jpg (see **Saving**).
 | `font_size` | 10 | base text size in points (tick labels use it unless tick_label_size is set) |
 | `font_weight` | "normal" | "normal" or "bold": all text unless a more specific _weight is set |
 
-## Box (the frame around the plot)
+## Box (the lines around the plot)
 
 General:
 
@@ -113,22 +113,22 @@ One side (`bottom`, `top`, `left`, `right`); each falls back to the general sett
 
 | Setting | Default | What it does |
 |---|---|---|
-| `bottom_box` | *(not set)* | box line on the bottom side: True/False; None = box |
+| `bottom_box` | *(not set)* | box line on the bottom side: true or false; None = box |
 | `bottom_box_width` | *(not set)* | box_width for the bottom side only; None = box_width |
 | `bottom_box_color` | *(not set)* | box_color for the bottom side only; None = box_color |
 | `bottom_box_alpha` | *(not set)* | box_alpha for the bottom side only; None = box_alpha |
 | `bottom_box_style` | *(not set)* | box_style for the bottom side only; None = box_style |
-| `top_box` | *(not set)* | box line on the top side: True/False; None = box |
+| `top_box` | *(not set)* | box line on the top side: true or false; None = box |
 | `top_box_width` | *(not set)* | box_width for the top side only; None = box_width |
 | `top_box_color` | *(not set)* | box_color for the top side only; None = box_color |
 | `top_box_alpha` | *(not set)* | box_alpha for the top side only; None = box_alpha |
 | `top_box_style` | *(not set)* | box_style for the top side only; None = box_style |
-| `left_box` | *(not set)* | box line on the left side: True/False; None = box |
+| `left_box` | *(not set)* | box line on the left side: true or false; None = box |
 | `left_box_width` | *(not set)* | box_width for the left side only; None = box_width |
 | `left_box_color` | *(not set)* | box_color for the left side only; None = box_color |
 | `left_box_alpha` | *(not set)* | box_alpha for the left side only; None = box_alpha |
 | `left_box_style` | *(not set)* | box_style for the left side only; None = box_style |
-| `right_box` | *(not set)* | box line on the right side: True/False; None = box |
+| `right_box` | *(not set)* | box line on the right side: true or false; None = box |
 | `right_box_width` | *(not set)* | box_width for the right side only; None = box_width |
 | `right_box_color` | *(not set)* | box_color for the right side only; None = box_color |
 | `right_box_alpha` | *(not set)* | box_alpha for the right side only; None = box_alpha |
@@ -142,7 +142,7 @@ Python:
 ```python
 c.plot(box='closed', left_box_width=2.5, top_box_color='red', top_box_style='--', right_box=False, plot_background='0.94', grid=False)
 ```
-Website (`/figure`): put the style settings in `"settings"` (title, xlabel and ylabel go at the top level):
+Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
 ```json
 {"box": "closed", "left_box_width": 2.5, "top_box_color": "red", "top_box_style": "--", "right_box": false, "plot_background": "0.94", "grid": false}
 ```
@@ -160,26 +160,30 @@ General:
 |---|---|---|
 | `tick_direction` | "out" | "in", "out" or "both" (through the box line); old name: ticks |
 | `tick_length` | 4.0 | tick length in points |
-| `tick_width` | *(not set)* | tick line width; None = box_width |
-| `tick_color` | *(not set)* | tick mark colour; None = box_color |
-| `tick_alpha` | 1.0 | tick mark transparency, 0 to 1 |
-| `tick_sides` | ["bottom", "left"] | sides with tick marks: any of "bottom", "top", "left", "right" |
-| `tick_label_sides` | ["bottom", "left"] | sides with tick labels (numbers) |
+| `tick_width` | *(not set)* | tick width in points; None = box_width |
+| `tick_color` | *(not set)* | tick colour; None = box_color |
+| `tick_alpha` | 1.0 | tick transparency, 0 to 1 |
+| `tick_sides` | ["bottom", "left"] | sides with ticks: any of "bottom", "top", "left", "right" |
+| `tick_label_sides` | ["bottom", "left"] | sides with tick labels (numbers): any of "bottom", "top", "left", "right" |
 | `tick_label_size` | *(not set)* | tick label (number) size in points; None = font_size |
 | `tick_label_color` | "black" | tick label colour |
 | `tick_label_alpha` | 1.0 | tick label transparency, 0 to 1 |
 | `tick_label_weight` | *(not set)* | "normal" or "bold"; None = font_weight |
-| `tick_label_italic` | false | tick labels in italics |
+| `tick_label_italic` | false | tick labels in italics: true or false |
 | `tick_label_font` | *(not set)* | tick label font; None = font |
 | `tick_label_rotation` | 0 | tick label rotation in degrees, e.g. 45 or 90 |
 | `tick_label_pad` | 3.5 | distance between tick and tick label, in points |
-| `minor_ticks` | false | small ticks between the numbered ones |
+| `minor_ticks` | false | small ticks between the numbered ones: true or false |
 | `minor_tick_length` | *(not set)* | minor tick length in points; None = 0.55 x tick_length |
 | `minor_tick_count` | *(not set)* | number of minor ticks between two numbered ticks; None = automatic |
+| `x_ticks_at` | *(not set)* | x tick positions, e.g. [400, 800, 1200, 1600]; None = automatic |
+| `y_ticks_at` | *(not set)* | y tick positions, e.g. [0, 0.5, 1]; None = automatic |
 | `x_tick_step` | *(not set)* | distance between x ticks, e.g. 200; None = automatic |
-| `y_tick_step` | *(not set)* | distance between y ticks; None = automatic |
-| `x_tick_format` | *(not set)* | number format of x tick labels, e.g. "%.2f"; None = automatic |
-| `y_tick_format` | *(not set)* | number format of y tick labels |
+| `y_tick_step` | *(not set)* | distance between y ticks, e.g. 0.25; None = automatic |
+| `x_tick_count` | *(not set)* | about how many numbered x ticks, e.g. 5 (rounded to good numbers); None = automatic |
+| `y_tick_count` | *(not set)* | about how many numbered y ticks, e.g. 4 (rounded to good numbers); None = automatic |
+| `x_tick_format` | *(not set)* | number format of x tick labels, e.g. "%.0f"; None = automatic |
+| `y_tick_format` | *(not set)* | number format of y tick labels, e.g. "%.2f"; None = automatic |
 
 One axis (`x_` = bottom and top, `y_` = left and right); each falls back to the general setting:
 
@@ -222,8 +226,8 @@ One side; each falls back to the axis setting, then the general one:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `bottom_ticks` | *(not set)* | tick marks on the bottom side: True/False; None = tick_sides |
-| `bottom_tick_labels` | *(not set)* | tick labels on the bottom side: True/False; None = tick_label_sides |
+| `bottom_ticks` | *(not set)* | ticks on the bottom side: true or false; None = tick_sides |
+| `bottom_tick_labels` | *(not set)* | tick labels on the bottom side: true or false; None = tick_label_sides |
 | `bottom_tick_direction` | *(not set)* | tick_direction for the bottom side only; None = x_tick_direction |
 | `bottom_tick_length` | *(not set)* | tick_length for the bottom side only; None = x_tick_length |
 | `bottom_tick_width` | *(not set)* | tick_width for the bottom side only; None = x_tick_width |
@@ -236,8 +240,8 @@ One side; each falls back to the axis setting, then the general one:
 | `bottom_tick_label_italic` | *(not set)* | tick_label_italic for the bottom side only; None = x_tick_label_italic |
 | `bottom_tick_label_font` | *(not set)* | tick_label_font for the bottom side only; None = x_tick_label_font |
 | `bottom_tick_label_rotation` | *(not set)* | tick_label_rotation for the bottom side only; None = x_tick_label_rotation |
-| `top_ticks` | *(not set)* | tick marks on the top side: True/False; None = tick_sides |
-| `top_tick_labels` | *(not set)* | tick labels on the top side: True/False; None = tick_label_sides |
+| `top_ticks` | *(not set)* | ticks on the top side: true or false; None = tick_sides |
+| `top_tick_labels` | *(not set)* | tick labels on the top side: true or false; None = tick_label_sides |
 | `top_tick_direction` | *(not set)* | tick_direction for the top side only; None = x_tick_direction |
 | `top_tick_length` | *(not set)* | tick_length for the top side only; None = x_tick_length |
 | `top_tick_width` | *(not set)* | tick_width for the top side only; None = x_tick_width |
@@ -250,8 +254,8 @@ One side; each falls back to the axis setting, then the general one:
 | `top_tick_label_italic` | *(not set)* | tick_label_italic for the top side only; None = x_tick_label_italic |
 | `top_tick_label_font` | *(not set)* | tick_label_font for the top side only; None = x_tick_label_font |
 | `top_tick_label_rotation` | *(not set)* | tick_label_rotation for the top side only; None = x_tick_label_rotation |
-| `left_ticks` | *(not set)* | tick marks on the left side: True/False; None = tick_sides |
-| `left_tick_labels` | *(not set)* | tick labels on the left side: True/False; None = tick_label_sides |
+| `left_ticks` | *(not set)* | ticks on the left side: true or false; None = tick_sides |
+| `left_tick_labels` | *(not set)* | tick labels on the left side: true or false; None = tick_label_sides |
 | `left_tick_direction` | *(not set)* | tick_direction for the left side only; None = y_tick_direction |
 | `left_tick_length` | *(not set)* | tick_length for the left side only; None = y_tick_length |
 | `left_tick_width` | *(not set)* | tick_width for the left side only; None = y_tick_width |
@@ -264,8 +268,8 @@ One side; each falls back to the axis setting, then the general one:
 | `left_tick_label_italic` | *(not set)* | tick_label_italic for the left side only; None = y_tick_label_italic |
 | `left_tick_label_font` | *(not set)* | tick_label_font for the left side only; None = y_tick_label_font |
 | `left_tick_label_rotation` | *(not set)* | tick_label_rotation for the left side only; None = y_tick_label_rotation |
-| `right_ticks` | *(not set)* | tick marks on the right side: True/False; None = tick_sides |
-| `right_tick_labels` | *(not set)* | tick labels on the right side: True/False; None = tick_label_sides |
+| `right_ticks` | *(not set)* | ticks on the right side: true or false; None = tick_sides |
+| `right_tick_labels` | *(not set)* | tick labels on the right side: true or false; None = tick_label_sides |
 | `right_tick_direction` | *(not set)* | tick_direction for the right side only; None = y_tick_direction |
 | `right_tick_length` | *(not set)* | tick_length for the right side only; None = y_tick_length |
 | `right_tick_width` | *(not set)* | tick_width for the right side only; None = y_tick_width |
@@ -287,7 +291,7 @@ Python:
 ```python
 c.plot(box='closed', tick_sides=['bottom', 'top', 'left', 'right'], tick_label_sides=['bottom', 'top', 'left'], x_tick_direction='in', y_tick_direction='out', top_tick_length=9, top_tick_color='red', top_tick_label_color='red', top_tick_label_rotation=45, right_tick_color='cmyk(1, 0.5, 0, 0)', right_tick_alpha=0.5, right_tick_length=7, x_minor_ticks=True, minor_tick_count=3, grid=False)
 ```
-Website (`/figure`): put the style settings in `"settings"` (title, xlabel and ylabel go at the top level):
+Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
 ```json
 {"box": "closed", "tick_sides": ["bottom", "top", "left", "right"], "tick_label_sides": ["bottom", "top", "left"], "x_tick_direction": "in", "y_tick_direction": "out", "top_tick_length": 9, "top_tick_color": "red", "top_tick_label_color": "red", "top_tick_label_rotation": 45, "right_tick_color": "cmyk(1, 0.5, 0, 0)", "right_tick_alpha": 0.5, "right_tick_length": 7, "x_minor_ticks": true, "minor_tick_count": 3, "grid": false}
 ```
@@ -305,11 +309,11 @@ Notes:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `grid` | true | grid lines on or off |
-| `grid_color` | "#b0b0b0" | grid colour |
-| `grid_style` | "-" | "-", "--", ":" or "-." |
-| `grid_width` | 0.6 | grid line width |
-| `grid_alpha` | 0.4 | grid opacity 0 to 1 |
+| `grid` | true | grid lines: true or false |
+| `grid_color` | "#b0b0b0" | grid line colour |
+| `grid_style` | "-" | grid line type: "-", "--", ":" or "-." |
+| `grid_width` | 0.6 | grid line width in points |
+| `grid_alpha` | 0.4 | grid line transparency, 0 to 1 |
 
 ## Axis labels
 
@@ -321,7 +325,7 @@ General (both axes):
 | `label_weight` | "normal" | "normal" or "bold": axis labels |
 | `label_color` | "black" | axis label colour |
 | `label_alpha` | 1.0 | axis label transparency, 0 to 1 |
-| `label_italic` | false | axis labels in italics |
+| `label_italic` | false | axis labels in italics: true or false |
 | `label_font` | *(not set)* | axis label font; None = font |
 | `label_pad` | 4.0 | distance between the axis label and the tick labels, in points |
 
@@ -359,7 +363,7 @@ The text is set with `title`.
 | `title_weight` | *(not set)* | "normal" or "bold"; None = font_weight |
 | `title_color` | "black" | title colour |
 | `title_alpha` | 1.0 | title transparency, 0 to 1 |
-| `title_italic` | false | title in italics |
+| `title_italic` | false | title in italics: true or false |
 | `title_font` | *(not set)* | title font; None = font |
 | `title_location` | "center" | "left", "center" or "right" |
 | `title_pad` | 6.0 | distance between the title and the plot, in points |
@@ -372,7 +376,7 @@ Python:
 ```python
 c.plot(xlabel_color='blue', xlabel_italic=True, ylabel_size=15, ylabel_weight='bold', title='Three samples', title_location='left', title_color=[160, 0, 0], title_italic=True, title_size=14)
 ```
-Website (`/figure`): put the style settings in `"settings"` (title, xlabel and ylabel go at the top level):
+Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
 ```json
 {"xlabel_color": "blue", "xlabel_italic": true, "ylabel_size": 15, "ylabel_weight": "bold", "title": "Three samples", "title_location": "left", "title_color": [160, 0, 0], "title_italic": true, "title_size": 14}
 ```
@@ -385,10 +389,11 @@ When and where:
 | Setting | Default | What it does |
 |---|---|---|
 | `legend` | "auto" | True, False or "auto" (shown for 2 to 10 lines) |
-| `legend_location` | "best" | e.g. "best", "upper right", "lower left", "outside" (right of the plot) |
+| `legend_location` | "best" | e.g. "best", "upper right", "lower left"; outside the box: "outside right" (or "outside"), "outside top", "outside bottom" |
 | `legend_position` | *(not set)* | exact place of the legend's corner as [x, y], 0 to 1 of the plot; overrides legend_location |
 | `legend_columns` | 1 | number of columns of legend entries |
 | `legend_order` | "normal" | "normal" (as drawn) or "reverse" |
+| `legend_hide` | *(not set)* | legend entries to leave out: a list of spectrum numbers (0 = first) or names |
 
 Entry text and heading:
 
@@ -398,24 +403,24 @@ Entry text and heading:
 | `legend_weight` | "normal" | "normal" or "bold" |
 | `legend_color` | "black" | legend text colour |
 | `legend_alpha` | 1.0 | legend text transparency, 0 to 1 |
-| `legend_italic` | false | legend text in italics |
+| `legend_italic` | false | legend text in italics: true or false |
 | `legend_font` | *(not set)* | legend font; None = font |
 | `legend_title` | *(not set)* | a heading above the legend entries |
 | `legend_title_size` | *(not set)* | legend heading size; None = legend_size |
 | `legend_title_weight` | "bold" | "normal" or "bold" |
 
-Frame:
+Legend box:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `legend_box` | false | frame around the legend |
-| `legend_box_color` | "#cccccc" | frame line colour |
-| `legend_box_width` | 0.8 | frame line width |
-| `legend_box_alpha` | 1.0 | frame line transparency, 0 to 1 |
-| `legend_box_round` | true | rounded frame corners |
-| `legend_fill` | "white" | colour inside the legend frame; "none" for no fill |
+| `legend_box` | false | box around the legend: true or false |
+| `legend_box_color` | "#cccccc" | legend box line colour |
+| `legend_box_width` | 0.8 | legend box line width in points |
+| `legend_box_alpha` | 1.0 | legend box line transparency, 0 to 1 |
+| `legend_box_round` | true | rounded legend box corners: true or false |
+| `legend_fill` | "white" | colour inside the legend box; "none" for no fill |
 | `legend_fill_alpha` | 0.8 | legend fill transparency, 0 to 1 |
-| `legend_shadow` | false | a shadow behind the legend frame |
+| `legend_shadow` | false | a shadow behind the legend box: true or false |
 
 Entry layout:
 
@@ -428,15 +433,15 @@ Entry layout:
 The names in the legend are the spectrum names, or `labels` (a list, one
 per spectrum).
 
-![Legend with a heading, three columns in reverse order, a green frame and a light yellow, half see-through fill; italic purple entries.](plotting/legend.png)
+![Legend with a heading, three columns in reverse order, a green legend box and a light yellow, half see-through fill; italic purple entries.](plotting/legend.png)
 
-*Legend with a heading, three columns in reverse order, a green frame and a light yellow, half see-through fill; italic purple entries.*
+*Legend with a heading, three columns in reverse order, a green legend box and a light yellow, half see-through fill; italic purple entries.*
 
 Python:
 ```python
 c.plot(legend=True, legend_box=True, legend_title='Samples', legend_columns=3, legend_order='reverse', legend_box_color='green', legend_box_width=1.5, legend_fill='#ffffcc', legend_fill_alpha=0.6, legend_color='purple', legend_italic=True, legend_location='upper left')
 ```
-Website (`/figure`): put the style settings in `"settings"` (title, xlabel and ylabel go at the top level):
+Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
 ```json
 {"legend": true, "legend_box": true, "legend_title": "Samples", "legend_columns": 3, "legend_order": "reverse", "legend_box_color": "green", "legend_box_width": 1.5, "legend_fill": "#ffffcc", "legend_fill_alpha": 0.6, "legend_color": "purple", "legend_italic": true, "legend_location": "upper left"}
 ```
@@ -444,26 +449,128 @@ Website (`/figure`): put the style settings in `"settings"` (title, xlabel and y
 
 ## Spectra (data lines)
 
+Colours:
+
 | Setting | Default | What it does |
 |---|---|---|
-| `line_width` | 1.0 | spectrum line width in points |
-| `line_style` | "-" | "-" solid, "--" dashed, ":" dotted, "-." dash-dot, "none" (markers only) |
-| `marker` | *(not set)* | point marker: None, "o", ".", "s", "^", "x" ... |
-| `marker_size` | 3.0 | marker size in points |
-| `colors` | "matplotlib" | colours of successive lines: a name in PALETTES or a list of colours |
+| `colors` | "matplotlib" | colours of successive spectra: a name in PALETTES, a colour map name (e.g. "viridis", spread over the spectra) or a list of colours |
 | `cmap` | "viridis" | colour map for many spectra (more than 10) and images |
+| `line_color` | *(not set)* | spectrum line colour (or a list, one per spectrum); None = the colours of colors |
 
-More line settings (transparency, MATLAB-style codes such as `"o--"`, one
-look per spectrum) are planned; see `docs/plotting_wishlist.md`.
+Palettes for `colors`: `matlab`, `matplotlib`, `colorblind`, `black`, `tab20`, `dark`; or any
+matplotlib colour map name, such as `"viridis"`, `"plasma"` or `"coolwarm"`,
+whose colours are spread evenly over the spectra (useful for a series, e.g.
+increasing temperature). With more than 10 spectra the colours always come
+from `cmap`, unless `line_color` is set.
+
+Line:
+
+| Setting | Default | What it does |
+|---|---|---|
+| `line_width` | 1.0 | spectrum line width in points (or a list) |
+| `line_style` | "-" | spectrum line type: "-", "--", ":", "-." or "none" (markers only) (or a list) |
+| `line_alpha` | *(not set)* | spectrum line transparency, 0 to 1 (or a list); None = solid, or 0.35 for more than 200 spectra |
+| `line_format` | *(not set)* | MATLAB short code for marker, line type and colour together, e.g. "o-", "*--", ".", "r:" (or a list); replaces marker and line_style, and line_color when it has a colour letter |
+
+Markers (the points on a line):
+
+| Setting | Default | What it does |
+|---|---|---|
+| `marker` | *(not set)* | point marker: None, "o", ".", "s", "^", "v", "d", "x", "+", "*" ... (or a list) |
+| `marker_size` | 3.0 | marker size in points (or a list) |
+| `marker_color` | *(not set)* | marker edge colour (or a list); None = line colour |
+| `marker_fill` | *(not set)* | colour inside the markers (or a list); "none" = hollow; None = marker_color |
+| `marker_alpha` | *(not set)* | marker transparency, 0 to 1 (or a list); None = line_alpha |
+| `marker_edge_width` | 1.0 | marker edge line width in points |
+| `marker_every` | *(not set)* | a marker on every n-th point only, e.g. 20; None = on every point |
+
+Emphasized spectra and fill:
+
+| Setting | Default | What it does |
+|---|---|---|
+| `emphasize_width` | *(not set)* | line width of emphasized spectra (plot's emphasize) in points; None = 2 x line_width |
+| `faded_alpha` | 0.3 | transparency of the other spectra when some are emphasized, 0 to 1 |
+| `fill` | false | fill the area under each spectrum: true or false |
+| `fill_color` | *(not set)* | fill colour; None = line colour |
+| `fill_alpha` | 0.2 | fill transparency, 0 to 1 |
+
+**One value or one per spectrum.** `line_color`, `line_width`, `line_style`, `line_alpha`, `line_format`, `marker`, `marker_size`, `marker_color`, `marker_fill`, `marker_alpha`
+take either one value for every spectrum or a list with one value per
+spectrum. A shorter list starts again from its beginning, so
+`"line_style": ["-", "--"]` gives solid, dashed, solid, dashed ... One colour
+written as numbers (`[0, 114, 189]`) is one colour, not a list.
+
+**MATLAB codes** (`line_format`), exactly as in MATLAB's `plot(x, y, "o--")`.
+A code joins up to three parts in any order: a line type, a marker and a
+colour letter. A marker without a line type draws markers only (no line),
+as in MATLAB.
+
+| Part | Codes |
+|---|---|
+| line type | `-` solid, `--` dashed, `:` dotted, `-.` dash-dot |
+| marker | `o` circle, `+` plus, `*` asterisk, `.` point, `x` cross, `s` square, `d` diamond, `^` `v` `>` `<` triangles, `p` five-pointed star, `h` hexagon, `_` `\|` short lines |
+| colour | `r` red, `g` green, `b` blue, `c` cyan, `m` magenta, `y` yellow, `k` black, `w` white (MATLAB's pure colours) |
+
+Examples: `"o-"` circles joined by a line; `"*--"` asterisks on a dashed
+line; `"."` points only; `"r:"` red dotted line; `"ks-"` black squares on a
+line. `line_format` replaces `marker` and `line_style`, and `line_color`
+when it has a colour letter. `marker_every` is worth setting with markers:
+a spectrum has hundreds of points, and a marker on each one hides the line.
+
+**Emphasize** is an argument of `plot`, not a style setting:
+`c.plot(emphasize=[0, 2])` or `emphasize=["Sample B"]` (numbers count from 0;
+names are the spectrum names or `labels`). On the website it goes at the top
+level of the body: `"emphasize": [1]`.
+
+![One look per spectrum with MATLAB codes: circles and a line, asterisks and dashes, hollow squares and dots; a marker on every 60th point only (stacked).](plotting/lines_format.png)
+
+*One look per spectrum with MATLAB codes: circles and a line, asterisks and dashes, hollow squares and dots; a marker on every 60th point only (stacked).*
+
+Python:
+```python
+c.plot(kind='stack', line_format=['o-', '*--', 's:'], marker_every=60, marker_size=6, marker_fill=[None, None, 'none'], line_width=1.2, legend=True)
+```
+Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+```json
+{"kind": "stack", "line_format": ["o-", "*--", "s:"], "marker_every": 60, "marker_size": 6, "marker_fill": [null, null, "none"], "line_width": 1.2, "legend": true}
+```
+
+![Spectrum B emphasized: on top, thicker and solid, with the other two faded.](plotting/lines_emphasize.png)
+
+*Spectrum B emphasized: on top, thicker and solid, with the other two faded.*
+
+Python:
+```python
+c.plot(emphasize=['Sample B'], colors='dark', faded_alpha=0.25, legend=True)
+```
+Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+```json
+{"emphasize": ["Sample B"], "colors": "dark", "faded_alpha": 0.25, "legend": true}
+```
+
+![Own colour per spectrum (one in CMYK), half see-through lines and a light fill under each line, down to its own zero (stacked).](plotting/lines_fill.png)
+
+*Own colour per spectrum (one in CMYK), half see-through lines and a light fill under each line, down to its own zero (stacked).*
+
+Python:
+```python
+c.plot(kind='stack', line_color=['navy', 'cmyk(0, 0.8, 1, 0)', '#2ca02c'], line_alpha=[1, 0.8, 0.6], fill=True, fill_alpha=0.15, legend=True)
+```
+Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+```json
+{"kind": "stack", "line_color": ["navy", "cmyk(0, 0.8, 1, 0)", "#2ca02c"], "line_alpha": [1, 0.8, 0.6], "fill": true, "fill_alpha": 0.15, "legend": true}
+```
+
 
 ## Reference lines at zero
 
 | Setting | Default | What it does |
 |---|---|---|
-| `zero_lines` | *(not set)* | dashed lines at 0: None, "x" (horizontal y=0), "y" (vertical x=0) or "both" |
-| `zero_line_style` | "--" | style of the zero lines |
-| `zero_line_width` | 1.0 | width of the zero lines |
-| `zero_line_color` | "black" | colour of the zero lines |
+| `zero_lines` | *(not set)* | lines marking zero: None (none), "x" (horizontal line at y = 0), "y" (vertical line at x = 0) or "both" |
+| `zero_line_style` | "--" | zero line type: "-", "--", ":" or "-." |
+| `zero_line_width` | 1.0 | zero line width in points |
+| `zero_line_color` | "black" | zero line colour |
+| `zero_line_alpha` | 1.0 | zero line transparency, 0 to 1 |
 
 ## Saving
 

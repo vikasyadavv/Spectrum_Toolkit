@@ -341,6 +341,15 @@ _TYPES = {"png": "image/png", "tiff": "image/tiff", "jpg": "image/jpeg", "pdf": 
           "svg": "image/svg+xml", "eps": "application/postscript"}
 
 
+def _color_mode(body: dict) -> str:
+    """RGB or CMYK for the saved file: "color_mode" (or its old name "color"), else the settings', else rgb."""
+    mode = body.get("color_mode") or body.get("color") or (body.get("settings") or {}).get("color_mode") or "rgb"
+    if str(mode).lower() not in ("rgb", "cmyk"):
+        raise ValueError(f'color_mode must be "rgb" or "cmyk"; got {mode!r}. (Line colours go in "settings", '
+                         'e.g. "line_color": "red".)')
+    return str(mode).lower()
+
+
 @app.post("/figure")
 def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     """Draw data and return the figure file."""
@@ -355,7 +364,8 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     fmt = str(body.get("format", "png")).lower()
     if fmt not in _TYPES:
         raise ValueError(f"Unknown format {fmt!r}. Choose one of: {', '.join(_TYPES)}.")
-    allowed = {"region", "offset", "labels", "highlight", "peaks", "marks", "title", "xlabel", "ylabel", "invert_x"}
+    allowed = {"region", "offset", "labels", "highlight", "emphasize", "peaks", "marks", "title", "xlabel", "ylabel",
+               "invert_x"}
     extra = {k: v for k, v in body.items() if k in allowed}
     if isinstance(extra.get("marks"), dict):                    # JSON keys are text: back to numbers
         extra["marks"] = {float(k): v for k, v in extra["marks"].items()}
@@ -364,7 +374,7 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
             ax = plot(data, kind=body.get("kind", "lines"), style=body.get("style"),
                       **(body.get("settings") or {}), **extra)
             path = export(ax, Path(folder) / "figure", format=fmt, dpi=int(body.get("dpi", 300)),
-                          color=body.get("color", "rgb"), transparent=bool(body.get("transparent", False)))
+                          color=_color_mode(body), transparent=bool(body.get("transparent", False)))
             content = path.read_bytes()
         finally:
             plt.close("all")

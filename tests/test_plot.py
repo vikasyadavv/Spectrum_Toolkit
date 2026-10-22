@@ -143,3 +143,25 @@ def test_highlight_ranges_spikes_and_wrong_values():
     for wrong in (0, "peaks", [1, 2], [[1, "a"]]):
         with pytest.raises(ValueError, match="highlight must be"):
             c.plot(highlight=wrong)
+
+
+def test_emphasize_and_fill():
+    c = SpectrumCollection(X[:200], np.random.default_rng(0).random((3, 200)), names=["a", "b", "c"])
+    ax = c.plot(emphasize=["b"], line_width=1, faded_alpha=0.2)
+    a, b, cc = ax.get_lines()[:3]
+    assert b.get_linewidth() == 2 and b.get_zorder() > a.get_zorder()  # thicker and on top
+    assert a.get_color()[3] == 0.2 and b.get_color()[3] == 1.0
+    ax = c.plot(kind="stack", fill=True, fill_alpha=0.3)
+    assert len(ax.collections) == 3                                     # one fill per spectrum
+    for bad in ("x", 3, [True]):
+        with pytest.raises(ValueError, match="emphasize"):
+            c.plot(emphasize=bad)
+
+
+def test_line_settings_on_many_spectra():
+    c = SpectrumCollection(X[:50], np.random.default_rng(0).random((250, 50)))
+    lines = c.plot().collections[0]
+    assert lines.get_alpha() == 0.35                                    # default: see-through
+    lines = c.plot(line_color="red", line_alpha=0.8).collections[0]
+    assert lines.get_alpha() is None and tuple(lines.get_edgecolor()[0]) == (1, 0, 0, 0.8)
+    assert len(c.plot(emphasize=0).get_lines()) == 250                  # emphasize draws each line
