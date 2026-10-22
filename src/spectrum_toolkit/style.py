@@ -230,6 +230,37 @@ SETTINGS: dict[str, tuple[Any, str]] = {
     "zero_line_width": (1.0, "zero line width in points"),
     "zero_line_color": ("black", "zero line colour"),
     "zero_line_alpha": (1.0, "zero line transparency, 0 to 1"),
+    # mark lines (plot's marks: vertical lines at chosen x). One mark can change these for itself:
+    # marks={1620: {"label": "C=C", "color": "red"}} (the names without "mark_").
+    "mark_color": ("0.4", "mark line colour"),
+    "mark_style": (":", 'mark line type: "-", "--", ":" or "-."'),
+    "mark_width": (0.9, "mark line width in points"),
+    "mark_alpha": (1.0, "mark line transparency, 0 to 1"),
+    "mark_span": ("full", '"full" (whole height), "peak" (from the bottom up to the spectrum) or "tick" '
+                          '(a short line above the spectrum)'),
+    # peak labels (plot's peaks: band positions written above the bands)
+    "peak_label_format": ("{:.0f}", 'how the position is written, e.g. "{:.0f}" (1585) or '
+                                    '"{:.1f} cm⁻¹" (1585.3 cm⁻¹)'),
+    "peak_sensitivity": (0.02, "how far a band must stand out to be labelled, as a fraction of the data height"),
+    "peak_spectra": ("first", '"first" (bands of the first spectrum), "all", or a list of spectrum numbers'),
+    "peak_line": (False, "a line from each band up to its label: true or false"),
+    "peak_line_color": ("0.4", "peak line colour"),
+    "peak_line_style": ("-", 'peak line type: "-", "--", ":" or "-."'),
+    "peak_line_width": (0.8, "peak line width in points"),
+    "peak_line_alpha": (1.0, "peak line transparency, 0 to 1"),
+    # highlighted ranges (plot's highlight). One range can change these for itself:
+    # highlight=[{"range": [1570, 1640], "color": "blue", "label": "G band"}] (the names without "highlight_").
+    "highlight_color": ("tab:orange", "highlight fill colour"),
+    "highlight_alpha": (0.15, "highlight fill transparency, 0 to 1"),
+    "highlight_hatch": (None, 'stripes in the highlight, for black and white print: "/", "\\\\", "x", "-", "|", "+", "." '
+                              'or "o" (doubled, e.g. "//", for denser stripes); None = no stripes'),
+    "highlight_edge_color": (None, "colour of the line around the highlight; None = no line"),
+    "highlight_edge_width": (1.0, "width of the line around the highlight, in points"),
+    "highlight_edge_style": ("-", 'line type around the highlight: "-", "--", ":" or "-."'),
+    "spike_color": ("tab:red", 'fill colour of spikes shaded by highlight="spikes" and by compare'),
+    "spike_alpha": (0.15, "spike fill transparency, 0 to 1"),
+    # text on the plot (mark labels, peak labels, highlight labels): see _TEXT_KEYS below
+    "label_overlap": ("move", '"move" (labels that would overlap are moved apart) or "keep" (left where they are)'),
     # saving
     "dpi": (300, "dots per inch for png, tiff and jpg"),
     "format": ("png", "file type when the name has no extension: png, tiff, jpg, pdf, svg, eps"),
@@ -270,12 +301,37 @@ for _side in SIDES:
     for _key in _BOX_KEYS:
         SETTINGS[f"{_side}_{_key}"] = (None, f"{_key} for the {_side} side only; None = {_key}")
 
+# Text on the plot: mark labels (C=C), peak labels (1585) and highlight labels (G band) each have
+# the same settings: mark_label_color, peak_label_size, highlight_label_box ...
+TEXTS = {"mark_label": "mark label", "peak_label": "peak label", "highlight_label": "highlight label"}
+for _what, _noun in TEXTS.items():
+    _defaults = {"mark_label": (90, "top"), "peak_label": (90, "peak"), "highlight_label": (0, "top")}[_what]
+    SETTINGS.update({
+        f"{_what}_color": ("black", f"{_noun} text colour" + ('; "line" = the colour of its spectrum'
+                                                              if _what == "peak_label" else "")),
+        f"{_what}_alpha": (1.0, f"{_noun} text transparency, 0 to 1"),
+        f"{_what}_size": (None, f"{_noun} text size in points; None = 0.75 x font_size"),
+        f"{_what}_weight": (None, '"normal" or "bold"; None = font_weight'),
+        f"{_what}_italic": (False, f"{_noun} in italics: true or false"),
+        f"{_what}_font": (None, f"{_noun} font; None = font"),
+        f"{_what}_rotation": (_defaults[0], f"{_noun} rotation in degrees, e.g. 0 or 90"),
+        f"{_what}_position": (_defaults[1], '"top" (just above the box) or "peak" (just above the spectrum)'),
+        f"{_what}_pad": (None, f"distance between the {_noun} and what it sits on, in points; None = automatic"),
+        f"{_what}_box": (False, f"a box behind the {_noun}, so it stays readable over lines: true or false"),
+        f"{_what}_box_color": ("none", f"{_noun} box line colour; \"none\" = no line"),
+        f"{_what}_fill": ("white", f"colour inside the {_noun} box"),
+        f"{_what}_fill_alpha": (0.8, f"{_noun} box fill transparency, 0 to 1"),
+    })
+
 # Allowed values of the settings that are a choice (checked in get_style).
 CHOICES: dict[str, tuple] = {
     "box": ("closed", "open", "none"),
     "tick_direction": ("in", "out", "both"),
     "title_location": ("left", "center", "right"),
     "legend_order": ("normal", "reverse"),
+    "mark_span": ("full", "peak", "tick"),
+    "label_overlap": ("move", "keep"),
+    **{f"{_what}_position": ("top", "peak") for _what in TEXTS},
 }
 _WEIGHTS = ("normal", "bold")
 _LINE_STYLES = ("-", "--", ":", "-.")
@@ -353,7 +409,7 @@ def _check_one(name: str, value) -> None:
         raise ValueError(f"{name} must be one of {', '.join(map(repr, CHOICES[base]))}; got {value!r}.")
     if name.endswith("_weight") and value not in _WEIGHTS:
         raise ValueError(f'{name} must be "normal" or "bold"; got {value!r}.')
-    if name.endswith("box_style") and value not in _LINE_STYLES:
+    if name.endswith("_style") and name != "line_style" and value not in _LINE_STYLES:
         raise ValueError(f"{name} must be one of {', '.join(map(repr, _LINE_STYLES))}; got {value!r}.")
     if name == "line_style" and value not in _LINE_STYLES + ("none",):
         raise ValueError(f"line_style must be one of {', '.join(map(repr, _LINE_STYLES + ('none',)))}; got {value!r}.")
@@ -375,18 +431,34 @@ def _check_one(name: str, value) -> None:
         raise ValueError(f"legend_location must be one of {', '.join(map(repr, _LEGEND_PLACES))}; got {value!r}.")
     if name == "legend_hide" and not isinstance(value, (list, tuple)):
         raise ValueError(f'legend_hide must be a list of spectrum numbers or names, e.g. [0, "blank"]; got {value!r}.')
+    if name == "peak_label_format":
+        try:
+            value.format(1585.25)
+        except (AttributeError, ValueError, IndexError, KeyError):
+            raise ValueError(f'peak_label_format must be like "{{:.0f}}" or "{{:.1f}} cm⁻¹"; got {value!r}.') from None
+    if name == "peak_spectra" and value not in ("first", "all") and not (
+            isinstance(value, (list, tuple)) and value
+            and all(isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in value)):
+        raise ValueError(f'peak_spectra must be "first", "all" or a list of spectrum numbers such as [0, 2]; '
+                         f'got {value!r}.')
+    if name == "highlight_hatch" and (not isinstance(value, str) or not value
+                                      or any(c not in "/\\x-|+.oO*" for c in value)):
+        raise ValueError(f'highlight_hatch must be made of "/", "\\\\", "x", "-", "|", "+", "." or "o"; got {value!r}.')
+    if name in ("peak_sensitivity",) and (not isinstance(value, (int, float)) or isinstance(value, bool)
+                                          or not 0 <= value < 1):
+        raise ValueError(f"peak_sensitivity must be a number from 0 to 1, e.g. 0.02; got {value!r}.")
     if name == "marker_every" and (not isinstance(value, int) or isinstance(value, bool) or value < 1):
         raise ValueError(f"marker_every must be a whole number of 1 or more; got {value!r}.")
     if name.endswith("_alpha"):
         if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 1:
             raise ValueError(f"{name} is a transparency from 0 (invisible) to 1 (solid); got {value!r}.")
-    if (name.endswith("_color") or name in ("background", "plot_background", "legend_fill", "marker_fill")) \
-            and value != "none":
+    if (name.endswith(("_color", "_fill")) or name in ("background", "plot_background")) \
+            and value != "none" and not (name == "peak_label_color" and value == "line"):
         to_rgba(value, name=name)                                    # raises a clear error if not a colour
     if name.endswith(("_length", "_width", "_size", "_pad", "_rotation", "_spacing", "_scale")) \
             and name != "size" and (not isinstance(value, (int, float)) or isinstance(value, bool)):
         raise ValueError(f"{name} must be a number; got {value!r}.")
-    if (name in ("legend_box", "legend_shadow", "legend_box_round", "minor_ticks", "fill")
+    if (name in ("legend_box", "legend_shadow", "legend_box_round", "minor_ticks", "fill", "peak_line")
             or name.endswith(("_italic", "_ticks", "_tick_labels", "_box", "minor_ticks"))) \
             and name != "box" and not isinstance(value, bool):
         raise ValueError(f"{name} must be true or false; got {value!r}.")

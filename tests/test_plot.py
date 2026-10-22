@@ -165,3 +165,81 @@ def test_line_settings_on_many_spectra():
     lines = c.plot(line_color="red", line_alpha=0.8).collections[0]
     assert lines.get_alpha() is None and tuple(lines.get_edgecolor()[0]) == (1, 0, 0, 0.8)
     assert len(c.plot(emphasize=0).get_lines()) == 250                  # emphasize draws each line
+
+
+def _bands():
+    """Three spectra with bands at 1000 and 1400 (the second band taller)."""
+    x = np.linspace(400, 1800, 700)
+    y = np.exp(-((x - 1000) / 15) ** 2) + 2 * np.exp(-((x - 1400) / 15) ** 2)
+    return SpectrumCollection(x, np.array([y, 0.8 * y, 0.6 * y]), names=["a", "b", "c"])
+
+
+def test_marks_with_own_settings_and_span():
+    from matplotlib.colors import to_rgb
+    c = _bands()
+    ax = c.plot(marks={1000: {"label": "A", "color": "red", "style": "--"}, 1400: "B"}, mark_span="peak")
+    lines = [line for line in ax.get_lines() if list(line.get_xdata()) in ([1000, 1000], [1400, 1400])]
+    assert len(lines) == 2
+    first, second = sorted(lines, key=lambda line: line.get_xdata()[0])
+    assert to_rgb(first.get_color()) == (1, 0, 0) and first.get_linestyle() == "--"
+    assert second.get_linestyle() == ":"                                # the style's mark_style
+    assert abs(max(second.get_ydata()) - 2.0) < 0.05                    # up to the spectrum, not the top
+    ax = c.plot(marks=[1000], mark_span="tick")
+    tick = [line for line in ax.get_lines() if list(line.get_xdata()) == [1000, 1000]][0]
+    assert min(tick.get_ydata()) > 1.0                                  # a short line above the band
+    with pytest.raises(ValueError, match="marks: unknown key"):
+        c.plot(marks={1000: {"label": "A", "colour": "red"}})
+    with pytest.raises(ValueError, match="mark_style"):
+        c.plot(marks={1000: {"style": "dotted"}})
+    with pytest.raises(ValueError, match="marks must be"):
+        c.plot(marks="1000")
+
+
+def test_peak_labels_settings():
+    from matplotlib.colors import to_rgb
+    c = _bands()
+    ax = c.plot(peaks=2, peak_spectra="all", peak_label_color="line", peak_label_format="{:.1f} cm⁻¹",
+                label_overlap="keep")
+    texts = ax.texts
+    assert len(texts) == 6 and texts[0].get_text().endswith(" cm⁻¹")    # 2 bands x 3 spectra
+    assert {to_rgb(t.get_color()) for t in texts} == {to_rgb(line.get_color()) for line in ax.get_lines()[:3]}
+    ax = c.plot(peaks=2, peak_line=True, peak_label_pad=20, peak_line_color="red")
+    assert all(t.arrow_patch is not None for t in ax.texts)
+    assert len(c.plot(peaks=5, peak_sensitivity=0.9).texts) == 1        # only the tall band stands out enough
+    ax = c.plot(peaks=[1400], peak_label_position="top", peak_label_box=True, peak_label_fill="yellow")
+    assert ax.texts[0].get_bbox_patch() is not None
+    assert ax.texts[0].xycoords == ("data", "axes fraction")            # above the box
+
+
+def test_overlapping_labels_are_moved_apart():
+    c = _bands()
+    ax = c.plot(marks={1000: "AAAA", 1003: "BBBB"})
+    r = ax.figure.canvas.get_renderer()
+    from matplotlib.text import Text
+    for t in ax.texts:
+        t.update_positions(r)
+    a, b = (Text.get_window_extent(t, r) for t in ax.texts)
+    assert not a.overlaps(b)
+    ax = c.plot(marks={1000: "AAAA", 1003: "BBBB"}, label_overlap="keep")
+    assert all(t.xyann == (0, 0) for t in ax.texts)
+
+
+def test_highlight_ranges_with_own_settings_and_labels():
+    from matplotlib.colors import to_rgba
+    c = _bands()
+    ax = c.plot(highlight=[[900, 950], {"range": [1350, 1450], "label": "B band", "color": "blue", "alpha": 0.3,
+                                        "hatch": "//", "edge_color": "black"}],
+                highlight_color="green")
+    first, second = ax.patches[-2:]
+    assert first.get_facecolor() == to_rgba("green", 0.15)
+    assert second.get_facecolor() == to_rgba("blue", 0.3) and second.get_hatch() == "//"
+    assert second.get_edgecolor() == to_rgba("black")
+    assert [t.get_text() for t in ax.texts] == ["B band"]
+    for bad in ([{"range": [1, 2], "colour": "red"}], [{"label": "x"}], [{"range": [1, 2], "hatch": "#"}]):
+        with pytest.raises(ValueError, match="highlight"):
+            c.plot(highlight=bad)
+
+
+def test_math_text_in_labels():
+    ax = _bands().plot(marks={1000: r"$\nu_{as}$(CH$_2$)"})
+    ax.figure.canvas.draw()                                             # math text is drawn without error

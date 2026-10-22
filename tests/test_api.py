@@ -212,3 +212,12 @@ def test_figure_line_settings_color_mode_and_emphasize():
     assert r.status_code == 422 and "line_color" in r.json()["detail"]      # points to where line colours go
     r = client.post("/figure", json={"data": sample(), "emphasize": [9]})
     assert r.status_code == 422 and "emphasize" in r.json()["detail"]
+
+
+def test_figure_marks_and_highlight_with_own_settings():
+    body = {"data": sample(), "peaks": 2, "marks": {"1000": {"label": "C=C", "color": "red"}},
+            "highlight": [{"range": [980, 1020], "label": "band", "hatch": "//"}],
+            "settings": {"peak_line": True, "peak_label_pad": 15, "mark_span": "peak", "highlight_label_box": True}}
+    assert client.post("/figure", json=body).status_code == 200
+    r = client.post("/figure", json={**body, "marks": {"1000": {"colour": "red"}}})
+    assert r.status_code == 422 and "marks" in r.json()["detail"]

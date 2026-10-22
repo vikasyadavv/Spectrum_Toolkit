@@ -3,7 +3,7 @@
 Everything a figure can show and every setting that changes how it looks.
 This file is written by `scripts/make_plotting_docs.py` from the settings in
 `src/spectrum_toolkit/style.py`, so it always lists every setting
-(238 today). Edit the script, not this file.
+(299 today). Edit the script, not this file.
 
 ## How to use settings
 
@@ -142,9 +142,9 @@ Python:
 ```python
 c.plot(box='closed', left_box_width=2.5, top_box_color='red', top_box_style='--', right_box=False, plot_background='0.94', grid=False)
 ```
-Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+Website (`/figure`), next to `"data"`:
 ```json
-{"box": "closed", "left_box_width": 2.5, "top_box_color": "red", "top_box_style": "--", "right_box": false, "plot_background": "0.94", "grid": false}
+{"settings": {"box": "closed", "left_box_width": 2.5, "top_box_color": "red", "top_box_style": "--", "right_box": false, "plot_background": "0.94", "grid": false}}
 ```
 
 
@@ -291,9 +291,9 @@ Python:
 ```python
 c.plot(box='closed', tick_sides=['bottom', 'top', 'left', 'right'], tick_label_sides=['bottom', 'top', 'left'], x_tick_direction='in', y_tick_direction='out', top_tick_length=9, top_tick_color='red', top_tick_label_color='red', top_tick_label_rotation=45, right_tick_color='cmyk(1, 0.5, 0, 0)', right_tick_alpha=0.5, right_tick_length=7, x_minor_ticks=True, minor_tick_count=3, grid=False)
 ```
-Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+Website (`/figure`), next to `"data"`:
 ```json
-{"box": "closed", "tick_sides": ["bottom", "top", "left", "right"], "tick_label_sides": ["bottom", "top", "left"], "x_tick_direction": "in", "y_tick_direction": "out", "top_tick_length": 9, "top_tick_color": "red", "top_tick_label_color": "red", "top_tick_label_rotation": 45, "right_tick_color": "cmyk(1, 0.5, 0, 0)", "right_tick_alpha": 0.5, "right_tick_length": 7, "x_minor_ticks": true, "minor_tick_count": 3, "grid": false}
+{"settings": {"box": "closed", "tick_sides": ["bottom", "top", "left", "right"], "tick_label_sides": ["bottom", "top", "left"], "x_tick_direction": "in", "y_tick_direction": "out", "top_tick_length": 9, "top_tick_color": "red", "top_tick_label_color": "red", "top_tick_label_rotation": 45, "right_tick_color": "cmyk(1, 0.5, 0, 0)", "right_tick_alpha": 0.5, "right_tick_length": 7, "x_minor_ticks": true, "minor_tick_count": 3, "grid": false}}
 ```
 
 
@@ -376,9 +376,9 @@ Python:
 ```python
 c.plot(xlabel_color='blue', xlabel_italic=True, ylabel_size=15, ylabel_weight='bold', title='Three samples', title_location='left', title_color=[160, 0, 0], title_italic=True, title_size=14)
 ```
-Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+Website (`/figure`), next to `"data"`:
 ```json
-{"xlabel_color": "blue", "xlabel_italic": true, "ylabel_size": 15, "ylabel_weight": "bold", "title": "Three samples", "title_location": "left", "title_color": [160, 0, 0], "title_italic": true, "title_size": 14}
+{"title": "Three samples", "settings": {"xlabel_color": "blue", "xlabel_italic": true, "ylabel_size": 15, "ylabel_weight": "bold", "title_location": "left", "title_color": [160, 0, 0], "title_italic": true, "title_size": 14}}
 ```
 
 
@@ -441,9 +441,9 @@ Python:
 ```python
 c.plot(legend=True, legend_box=True, legend_title='Samples', legend_columns=3, legend_order='reverse', legend_box_color='green', legend_box_width=1.5, legend_fill='#ffffcc', legend_fill_alpha=0.6, legend_color='purple', legend_italic=True, legend_location='upper left')
 ```
-Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+Website (`/figure`), next to `"data"`:
 ```json
-{"legend": true, "legend_box": true, "legend_title": "Samples", "legend_columns": 3, "legend_order": "reverse", "legend_box_color": "green", "legend_box_width": 1.5, "legend_fill": "#ffffcc", "legend_fill_alpha": 0.6, "legend_color": "purple", "legend_italic": true, "legend_location": "upper left"}
+{"settings": {"legend": true, "legend_box": true, "legend_title": "Samples", "legend_columns": 3, "legend_order": "reverse", "legend_box_color": "green", "legend_box_width": 1.5, "legend_fill": "#ffffcc", "legend_fill_alpha": 0.6, "legend_color": "purple", "legend_italic": true, "legend_location": "upper left"}}
 ```
 
 
@@ -530,9 +530,9 @@ Python:
 ```python
 c.plot(kind='stack', line_format=['o-', '*--', 's:'], marker_every=60, marker_size=6, marker_fill=[None, None, 'none'], line_width=1.2, legend=True)
 ```
-Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+Website (`/figure`), next to `"data"`:
 ```json
-{"kind": "stack", "line_format": ["o-", "*--", "s:"], "marker_every": 60, "marker_size": 6, "marker_fill": [null, null, "none"], "line_width": 1.2, "legend": true}
+{"kind": "stack", "settings": {"line_format": ["o-", "*--", "s:"], "marker_every": 60, "marker_size": 6, "marker_fill": [null, null, "none"], "line_width": 1.2, "legend": true}}
 ```
 
 ![Spectrum B emphasized: on top, thicker and solid, with the other two faded.](plotting/lines_emphasize.png)
@@ -543,9 +543,9 @@ Python:
 ```python
 c.plot(emphasize=['Sample B'], colors='dark', faded_alpha=0.25, legend=True)
 ```
-Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+Website (`/figure`), next to `"data"`:
 ```json
-{"emphasize": ["Sample B"], "colors": "dark", "faded_alpha": 0.25, "legend": true}
+{"emphasize": ["Sample B"], "settings": {"colors": "dark", "faded_alpha": 0.25, "legend": true}}
 ```
 
 ![Own colour per spectrum (one in CMYK), half see-through lines and a light fill under each line, down to its own zero (stacked).](plotting/lines_fill.png)
@@ -556,11 +556,118 @@ Python:
 ```python
 c.plot(kind='stack', line_color=['navy', 'cmyk(0, 0.8, 1, 0)', '#2ca02c'], line_alpha=[1, 0.8, 0.6], fill=True, fill_alpha=0.15, legend=True)
 ```
-Website (`/figure`): put the style settings in `"settings"` (kind, title, xlabel, ylabel and emphasize go at the top level):
+Website (`/figure`), next to `"data"`:
 ```json
-{"kind": "stack", "line_color": ["navy", "cmyk(0, 0.8, 1, 0)", "#2ca02c"], "line_alpha": [1, 0.8, 0.6], "fill": true, "fill_alpha": 0.15, "legend": true}
+{"kind": "stack", "settings": {"line_color": ["navy", "cmyk(0, 0.8, 1, 0)", "#2ca02c"], "line_alpha": [1, 0.8, 0.6], "fill": true, "fill_alpha": 0.15, "legend": true}}
 ```
 
+
+## Marks, peak labels and highlighted ranges
+
+These are arguments of `plot` (`marks=`, `peaks=`, `highlight=`); on the
+website they go at the top level of the body, next to `"data"`. Their look
+is set by the settings below.
+
+**Mark lines** (`marks=[1585, 1620]`, or `marks={1620: "C=C"}` with labels):
+
+| Setting | Default | What it does |
+|---|---|---|
+| `mark_color` | "0.4" | mark line colour |
+| `mark_style` | ":" | mark line type: "-", "--", ":" or "-." |
+| `mark_width` | 0.9 | mark line width in points |
+| `mark_alpha` | 1.0 | mark line transparency, 0 to 1 |
+| `mark_span` | "full" | "full" (whole height), "peak" (from the bottom up to the spectrum) or "tick" (a short line above the spectrum) |
+
+One mark can have its own look: `marks={1620: {"label": "C=C", "color": "red", "style": "--"}}`.
+The keys are the setting names without `mark_`: `label`, `color`, `style`, `width`, `alpha`, `span`.
+
+**Peak labels** (`peaks=5`: the 5 most prominent bands; or `peaks=[1000, 1600]`: those positions):
+
+| Setting | Default | What it does |
+|---|---|---|
+| `peak_label_format` | "{:.0f}" | how the position is written, e.g. "{:.0f}" (1585) or "{:.1f} cm⁻¹" (1585.3 cm⁻¹) |
+| `peak_sensitivity` | 0.02 | how far a band must stand out to be labelled, as a fraction of the data height |
+| `peak_spectra` | "first" | "first" (bands of the first spectrum), "all", or a list of spectrum numbers |
+| `peak_line` | false | a line from each band up to its label: true or false |
+| `peak_line_color` | "0.4" | peak line colour |
+| `peak_line_style` | "-" | peak line type: "-", "--", ":" or "-." |
+| `peak_line_width` | 0.8 | peak line width in points |
+| `peak_line_alpha` | 1.0 | peak line transparency, 0 to 1 |
+
+**Highlighted ranges** (`highlight=[[1570, 1640]]`, or `highlight="spikes"` for the spikes removed by despike):
+
+| Setting | Default | What it does |
+|---|---|---|
+| `highlight_color` | "tab:orange" | highlight fill colour |
+| `highlight_alpha` | 0.15 | highlight fill transparency, 0 to 1 |
+| `highlight_hatch` | *(not set)* | stripes in the highlight, for black and white print: "/", "\\", "x", "-", "/", "+", "." or "o" (doubled, e.g. "//", for denser stripes); None = no stripes |
+| `highlight_edge_color` | *(not set)* | colour of the line around the highlight; None = no line |
+| `highlight_edge_width` | 1.0 | width of the line around the highlight, in points |
+| `highlight_edge_style` | "-" | line type around the highlight: "-", "--", ":" or "-." |
+| `spike_color` | "tab:red" | fill colour of spikes shaded by highlight="spikes" and by compare |
+| `spike_alpha` | 0.15 | spike fill transparency, 0 to 1 |
+
+One range can have its own label and look:
+`highlight=[{"range": [1570, 1640], "label": "G band", "color": "blue"}]`. The keys
+are `range`, `label` and the setting names without `highlight_`:
+`color`, `alpha`, `hatch`, `edge_color`, `edge_width`, `edge_style`.
+
+![Peak labels of the first and third spectrum in the colour of their line, with a line up to each label (labels that would overlap are moved apart); marks from the bottom up to the spectrum, one in red and dashed; mark labels in a box.](plotting/marks_and_peaks.png)
+
+*Peak labels of the first and third spectrum in the colour of their line, with a line up to each label (labels that would overlap are moved apart); marks from the bottom up to the spectrum, one in red and dashed; mark labels in a box.*
+
+Python:
+```python
+c.plot(peaks=4, marks={1180: {'label': 'ν(C-O)', 'color': 'red', 'style': '--'}, 1370: 'D'}, peak_spectra=[0, 2], peak_label_color='line', peak_line=True, peak_label_pad=22, mark_span='peak', mark_label_box=True, mark_label_rotation=0, mark_label_weight='bold', colors='dark')
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"peaks": 4, "marks": {"1180": {"label": "ν(C-O)", "color": "red", "style": "--"}, "1370": "D"}, "settings": {"peak_spectra": [0, 2], "peak_label_color": "line", "peak_line": true, "peak_label_pad": 22, "mark_span": "peak", "mark_label_box": true, "mark_label_rotation": 0, "mark_label_weight": "bold", "colors": "dark"}}
+```
+
+![Two highlighted ranges, each with its own label and look: a blue range with a solid line around it, and a striped range for black and white print.](plotting/highlight.png)
+
+*Two highlighted ranges, each with its own label and look: a blue range with a solid line around it, and a striped range for black and white print.*
+
+Python:
+```python
+c.plot(highlight=[{'range': [1560, 1640], 'label': 'G band', 'color': 'blue', 'edge_color': 'blue'}, {'range': [1330, 1410], 'label': 'D band', 'hatch': '//', 'color': '0.5', 'alpha': 0.1}], highlight_label_weight='bold', highlight_label_size=10)
+```
+Website (`/figure`), next to `"data"`:
+```json
+{"highlight": [{"range": [1560, 1640], "label": "G band", "color": "blue", "edge_color": "blue"}, {"range": [1330, 1410], "label": "D band", "hatch": "//", "color": "0.5", "alpha": 0.1}], "settings": {"highlight_label_weight": "bold", "highlight_label_size": 10}}
+```
+
+
+## Text on the plot
+
+Mark labels (`C=C`), peak labels (`1585`) and highlight labels (`G band`)
+each have the same settings, starting with `mark_label_`, `peak_label_` or
+`highlight_label_`:
+
+| Setting (after `mark_label_` ...) | Default: mark / peak / highlight label | What it does |
+|---|---|---|
+| `mark_label_color`, `peak_label_color`, `highlight_label_color` | "black" / "black" / "black" | label text colour; for peak labels also "line": the colour of its spectrum |
+| `mark_label_alpha`, `peak_label_alpha`, `highlight_label_alpha` | 1.0 / 1.0 / 1.0 | label text transparency, 0 to 1 |
+| `mark_label_size`, `peak_label_size`, `highlight_label_size` | *(not set)* / *(not set)* / *(not set)* | label text size in points; None = 0.75 x font_size |
+| `mark_label_weight`, `peak_label_weight`, `highlight_label_weight` | *(not set)* / *(not set)* / *(not set)* | "normal" or "bold"; None = font_weight |
+| `mark_label_italic`, `peak_label_italic`, `highlight_label_italic` | false / false / false | label in italics: true or false |
+| `mark_label_font`, `peak_label_font`, `highlight_label_font` | *(not set)* / *(not set)* / *(not set)* | label font; None = font |
+| `mark_label_rotation`, `peak_label_rotation`, `highlight_label_rotation` | 90 / 90 / 0 | label rotation in degrees, e.g. 0 or 90 |
+| `mark_label_position`, `peak_label_position`, `highlight_label_position` | "top" / "peak" / "top" | "top" (just above the box) or "peak" (just above the spectrum) |
+| `mark_label_pad`, `peak_label_pad`, `highlight_label_pad` | *(not set)* / *(not set)* / *(not set)* | distance between the label and what it sits on, in points; None = automatic |
+| `mark_label_box`, `peak_label_box`, `highlight_label_box` | false / false / false | a box behind the label, so it stays readable over lines: true or false |
+| `mark_label_box_color`, `peak_label_box_color`, `highlight_label_box_color` | "none" / "none" / "none" | label box line colour; "none" = no line |
+| `mark_label_fill`, `peak_label_fill`, `highlight_label_fill` | "white" / "white" / "white" | colour inside the label box |
+| `mark_label_fill_alpha`, `peak_label_fill_alpha`, `highlight_label_fill_alpha` | 0.8 / 0.8 / 0.8 | label box fill transparency, 0 to 1 |
+
+| Setting | Default | What it does |
+|---|---|---|
+| `label_overlap` | "move" | "move" (labels that would overlap are moved apart) or "keep" (left where they are) |
+
+Special characters: write them directly (cm⁻¹, ν(C=C), I₀, δ), or as math
+text between dollar signs, e.g. `"$\nu_{as}$(CH$_2$)"` for ν with "as" below
+and CH with a small 2.
 
 ## Reference lines at zero
 

@@ -2,8 +2,8 @@
 
 **Status:** agreed 2026-10-21 (naming rule yes; full per-side customisation for everything;
 MATLAB codes yes; order as suggested; section 7 discussed later, line by line).
-Built: **4 (box, ticks)**, **6 (labels, title, legend)** and **1 (spectral lines)**, see `docs/plotting.md`.
-Next: 2 and 3.
+Built: **4 (box, ticks)**, **6 (labels, title, legend)**, **1 (spectral lines)** and **2 + 3 (marks, peak
+labels, highlights, text on the plot)**, see `docs/plotting.md`. Next: section 7, discussed line by line.
 
 This list is **for discussion only**. No code has changed. Each item says:
 - what the code **already does** (with the setting name, so you can try it today);

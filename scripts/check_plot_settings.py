@@ -26,7 +26,7 @@ from PIL import Image
 
 import spectrum_toolkit as stk
 from spectrum_toolkit import SpectrumCollection
-from spectrum_toolkit.style import PER_SPECTRUM, SETTINGS, SIDES, get_style
+from spectrum_toolkit.style import PER_SPECTRUM, SETTINGS, SIDES, TEXTS, get_style
 
 # ------------------------------------------------------------------ the figure used for every check
 X = np.linspace(400, 1800, 300)
@@ -34,6 +34,14 @@ Y = np.array([0.1 * k + np.exp(-((X - c) / 25) ** 2) - 0.3 * np.exp(-((X - 900) 
               for k, c in enumerate((1000, 1200, 1400))])                     # dips below zero: zero lines show
 DATA = SpectrumCollection(X, Y, names=["A", "B", "C"], x_unit="x unit", y_unit="y unit")
 TEXT = dict(title="Title", xlabel="x label", ylabel="y label")
+_spiky = Y.copy()
+_spiky[1, 150] += 3                                                            # one spike, removed by despike
+SPIKED = SpectrumCollection(X, _spiky, names=["A", "B", "C"]).despike()
+
+# Arguments of plot itself (not style settings): peak labels, marks and a labelled range are always shown.
+PLOT_ARGUMENTS = dict(peaks=2, marks={1000: "M", 1400: "N"},
+                      highlight=[{"range": [1150, 1250], "label": "H"}])
+PLOT_KEYS = ("peaks", "marks", "highlight", "emphasize")
 
 # Everything visible, so each setting has something to act on.
 CONTEXT = dict(box="closed", tick_sides=["bottom", "top", "left", "right"],
@@ -57,6 +65,8 @@ def changed_value(name: str, current):
         "minor_ticks": False, "minor_tick_count": 1, "legend_box": False, "legend_shadow": True,
         "legend_box_round": False, "legend_fill": "yellow", "background": "lightblue",
         "plot_background": "yellow", "line_format": "s--", "marker_fill": "none", "marker_every": 10,
+        "mark_span": "peak", "peak_label_format": "{:.2f} cm", "peak_sensitivity": 0.9,
+        "peak_spectra": "all", "highlight_hatch": "//", "label_overlap": "keep",
         "x_ticks_at": [500, 1000, 1500], "y_ticks_at": [0, 0.5], "x_tick_count": 3, "y_tick_count": 2,
         "legend_hide": [1],
     }
@@ -74,16 +84,20 @@ def changed_value(name: str, current):
         return not bool(current)
     if name.endswith("tick_direction"):
         return "both"
+    if name.endswith("_position"):
+        return "top" if current == "peak" else "peak"
+    if name.endswith("_fill"):
+        return "yellow"
     if name.endswith("_color"):
         return "blue" if current in ("red",) else "red"
     if name.endswith("_alpha"):
-        return 0.15
+        return 0.15 if current != 0.15 else 0.6
     if name.endswith("_weight"):
         return "normal" if current == "bold" else "bold"
     if name.endswith("_font"):
         return "DejaVu Serif"
     if name.endswith("_style"):
-        return ":"
+        return ":" if current != ":" else "--"
     if name.endswith("_rotation"):
         return 45 if current != 45 else 0
     if name.endswith("_pad"):
@@ -101,7 +115,9 @@ def changed_value(name: str, current):
 
 def picture(settings: dict, kind: str = "lines") -> np.ndarray:
     """Draw, save as png in memory and return the pixels."""
-    ax = stk.plot(DATA, kind=kind, **TEXT, **settings)
+    settings = {**PLOT_ARGUMENTS, **settings}
+    data = SPIKED if settings["highlight"] == "spikes" else DATA
+    ax = stk.plot(data, kind=kind, **TEXT, **settings)
     buffer = io.BytesIO()
     ax.figure.savefig(buffer, format="png", dpi=50)
     plt.close("all")
@@ -145,6 +161,19 @@ def context_for(name: str) -> dict:
         ctx["emphasize"] = [1]
     if name in ("fill_color", "fill_alpha"):
         ctx["fill"] = True
+    if name.startswith("peak_line_"):
+        ctx["peak_line"] = True
+    if name.startswith("highlight_edge_"):
+        ctx["highlight_edge_color"] = "black"
+    if name.startswith("spike_"):
+        ctx["highlight"] = "spikes"
+    what = next((w for w in TEXTS if name.startswith(w + "_")), None)
+    if what and name.endswith(("_box_color", "_fill", "_fill_alpha")):  # a text box: only seen when it is on
+        ctx[f"{what}_box"] = True
+        if name.endswith("_fill_alpha"):
+            ctx[f"{what}_fill"] = "yellow"
+    if name == "label_overlap":
+        ctx["marks"] = {1000: "AAAA", 1004: "BBBB"}            # two labels on top of each other
     return ctx
 
 
@@ -268,7 +297,7 @@ def main() -> int:
         if name in FILE_CHECKS:
             continue
         ctx = context_for(name)
-        current = ctx.get(name, get_style("clean", **{k: v for k, v in ctx.items() if k != "emphasize"})[name])
+        current = ctx.get(name, get_style("clean", **{k: v for k, v in ctx.items() if k not in PLOT_KEYS})[name])
         value = changed_value(name, current)
         kind = "image" if name == "cmap" else "lines"
         try:
@@ -300,7 +329,10 @@ def main() -> int:
              "box_style": "~", "legend_box": "maybe", "line_format": "o-q", "line_style": "dashed",
              "marker": "smiley", "marker_every": 0, "line_alpha": [1, 2], "line_color": ["red", "nocolour"],
              "fill": "yes", "zero_line_alpha": -1, "x_ticks_at": "400", "y_tick_count": 0,
-             "legend_location": "outside left", "legend_hide": 1}
+             "legend_location": "outside left", "legend_hide": 1, "mark_span": "half", "mark_style": "dotted",
+             "peak_label_format": "{:.0q}", "peak_spectra": "some", "highlight_hatch": "#",
+             "peak_label_position": "middle", "highlight_label_box": "yes", "peak_sensitivity": 2,
+             "label_overlap": "hide", "peak_label_color": "notacolour"}
     for name, value in wrong.items():
         try:
             get_style("clean", **{name: value})

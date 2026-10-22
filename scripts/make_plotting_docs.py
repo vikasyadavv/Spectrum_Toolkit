@@ -16,11 +16,12 @@ import numpy as np
 
 import spectrum_toolkit as stk
 from spectrum_toolkit import SpectrumCollection
-from spectrum_toolkit.style import AXIS_OF_SIDE, PALETTES, PER_SPECTRUM, SETTINGS, SIDES
+from spectrum_toolkit.style import AXIS_OF_SIDE, PALETTES, PER_SPECTRUM, SETTINGS, SIDES, TEXTS
 
 ROOT = Path(__file__).resolve().parent.parent
 DOC = ROOT / "docs" / "plotting.md"
 PICTURES = ROOT / "docs" / "plotting"
+USED: set = set()                    # settings already placed in a section (each must be placed once)
 
 
 # ------------------------------------------------------------------ example data
@@ -71,10 +72,21 @@ PICTURE_LIST = [
                        "each line, down to its own zero (stacked).",
      dict(kind="stack", line_color=["navy", "cmyk(0, 0.8, 1, 0)", "#2ca02c"], line_alpha=[1, 0.8, 0.6], fill=True,
           fill_alpha=0.15, legend=True)),
+    ("marks_and_peaks.png", "Peak labels of the first and third spectrum in the colour of their line, with a "
+                            "line up to each label (labels that would overlap are moved apart); marks from the "
+                            "bottom up to the spectrum, one in red and dashed; mark labels in a box.",
+     dict(peaks=4, marks={1180: {"label": "ν(C-O)", "color": "red", "style": "--"}, 1370: "D"},
+          peak_spectra=[0, 2], peak_label_color="line", peak_line=True, peak_label_pad=22, mark_span="peak",
+          mark_label_box=True, mark_label_rotation=0, mark_label_weight="bold", colors="dark")),
+    ("highlight.png", "Two highlighted ranges, each with its own label and look: a blue range with a solid "
+                      "line around it, and a striped range for black and white print.",
+     dict(highlight=[{"range": [1560, 1640], "label": "G band", "color": "blue", "edge_color": "blue"},
+                     {"range": [1330, 1410], "label": "D band", "hatch": "//", "color": "0.5", "alpha": 0.1}],
+          highlight_label_weight="bold", highlight_label_size=10)),
 ]
 
 # Arguments of plot itself (not style settings): passed apart from the settings.
-PLOT_ARGUMENTS = ("kind", "title", "emphasize")
+PLOT_ARGUMENTS = ("kind", "title", "emphasize", "peaks", "marks", "highlight", "region")
 
 
 def make_pictures() -> None:
@@ -116,10 +128,27 @@ def picture(name: str) -> str:
     import json
     _, caption, settings = next(p for p in PICTURE_LIST if p[0] == name)
     python = ", ".join(f"{k}={v!r}" for k, v in settings.items())
-    website = json.dumps(settings, ensure_ascii=False)
+    body = {k: v for k, v in settings.items() if k in PLOT_ARGUMENTS}
+    style = {k: v for k, v in settings.items() if k not in PLOT_ARGUMENTS}
+    website = json.dumps({**body, "settings": style} if style else body, ensure_ascii=False)
     return (f"![{caption}](plotting/{name})\n\n*{caption}*\n\nPython:\n```python\nc.plot({python})\n```\n"
-            f"Website (`/figure`): put the style settings in `\"settings\"` (kind, title, xlabel, ylabel and "
-            f"emphasize go at the top level):\n```json\n{website}\n```\n")
+            f"Website (`/figure`), next to `\"data\"`:\n```json\n{website}\n```\n")
+
+
+def table_of_texts() -> str:
+    """One row per text setting, one column per kind of text (mark, peak, highlight label)."""
+    keys = [n[len("mark_label_"):] for n in SETTINGS if n.startswith("mark_label_")]
+    rows = ["| Setting (after `mark_label_` ...) | Default: mark / peak / highlight label | What it does |",
+            "|---|---|---|"]
+    for key in keys:
+        names = [f"{what}_{key}" for what in TEXTS]
+        USED.update(names)
+        defaults = " / ".join(show(SETTINGS[n][0]) for n in names)
+        meaning = SETTINGS[names[0]][1].replace("mark label", "label").replace("|", "/")
+        if key == "color":
+            meaning += '; for peak labels also "line": the colour of its spectrum'
+        rows.append(f"| {', '.join(f'`{n}`' for n in names)} | {defaults} | {meaning} |")
+    return "\n".join(rows)
 
 
 def group(prefixes: tuple, keys) -> list[str]:
@@ -141,10 +170,10 @@ def write_doc() -> None:
     label_keys = ["label_size", "label_weight", "label_color", "label_alpha", "label_italic", "label_font",
                   "label_pad", "label_rotation"]
     box_keys = ["box", "box_width", "box_color", "box_alpha", "box_style"]
-    used = set()
+    USED.clear()
 
     def section(names):
-        used.update(names)
+        USED.update(names)
         return table(names)
 
     parts = [f"""# Plotting reference
@@ -382,6 +411,51 @@ level of the body: `"emphasize": [1]`.
 {picture("lines_emphasize.png")}
 {picture("lines_fill.png")}
 
+## Marks, peak labels and highlighted ranges
+
+These are arguments of `plot` (`marks=`, `peaks=`, `highlight=`); on the
+website they go at the top level of the body, next to `"data"`. Their look
+is set by the settings below.
+
+**Mark lines** (`marks=[1585, 1620]`, or `marks={{1620: "C=C"}}` with labels):
+
+{section(["mark_color", "mark_style", "mark_width", "mark_alpha", "mark_span"])}
+
+One mark can have its own look: `marks={{1620: {{"label": "C=C", "color": "red", "style": "--"}}}}`.
+The keys are the setting names without `mark_`: {", ".join(f"`{k}`" for k in ("label", "color", "style", "width", "alpha", "span"))}.
+
+**Peak labels** (`peaks=5`: the 5 most prominent bands; or `peaks=[1000, 1600]`: those positions):
+
+{section(["peak_label_format", "peak_sensitivity", "peak_spectra", "peak_line", "peak_line_color",
+          "peak_line_style", "peak_line_width", "peak_line_alpha"])}
+
+**Highlighted ranges** (`highlight=[[1570, 1640]]`, or `highlight="spikes"` for the spikes removed by despike):
+
+{section(["highlight_color", "highlight_alpha", "highlight_hatch", "highlight_edge_color",
+          "highlight_edge_width", "highlight_edge_style", "spike_color", "spike_alpha"])}
+
+One range can have its own label and look:
+`highlight=[{{"range": [1570, 1640], "label": "G band", "color": "blue"}}]`. The keys
+are `range`, `label` and the setting names without `highlight_`:
+{", ".join(f"`{k}`" for k in ("color", "alpha", "hatch", "edge_color", "edge_width", "edge_style"))}.
+
+{picture("marks_and_peaks.png")}
+{picture("highlight.png")}
+
+## Text on the plot
+
+Mark labels (`C=C`), peak labels (`1585`) and highlight labels (`G band`)
+each have the same settings, starting with `mark_label_`, `peak_label_` or
+`highlight_label_`:
+
+{table_of_texts()}
+
+{section(["label_overlap"])}
+
+Special characters: write them directly (cm⁻¹, ν(C=C), I₀, δ), or as math
+text between dollar signs, e.g. `"$\\nu_{{as}}$(CH$_2$)"` for ν with "as" below
+and CH with a small 2.
+
 ## Reference lines at zero
 
 {section(["zero_lines", "zero_line_style", "zero_line_width", "zero_line_color", "zero_line_alpha"])}
@@ -390,7 +464,7 @@ level of the body: `"emphasize": [1]`.
 
 {section(["dpi", "format", "color_mode"])}
 """]
-    missing = set(SETTINGS) - used
+    missing = set(SETTINGS) - USED
     if missing:                                                      # every setting must appear somewhere
         raise SystemExit(f"Settings not placed in any section of the reference: {sorted(missing)}")
     DOC.write_text("".join(parts), encoding="utf-8")

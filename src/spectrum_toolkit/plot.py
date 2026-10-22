@@ -48,7 +48,7 @@ from typing import Any
 import numpy as np
 
 from .core import Spectrum, SpectrumCollection
-from .style import DEFAULTS, _colors, export, finish_axes, get_style, legend, line_settings, styled, to_rgba
+from .style import DEFAULTS, _check_one, _colors, _fill, _style_text, export, finish_axes, get_style, legend, line_settings, styled, to_rgba
 
 Data = Spectrum | SpectrumCollection
 
@@ -88,16 +88,66 @@ def _spike_ranges(item: Data, name: str | None = None) -> list[tuple[float, floa
     return ranges
 
 
-def _check_highlight(highlight):
-    """highlight as given: None, "spikes", or a list of (lo, hi) x ranges; anything else is an error."""
+_RANGE_KEYS = ("color", "alpha", "hatch", "edge_color", "edge_width", "edge_style")   # highlight_... for one range
+_MARK_KEYS = ("color", "style", "width", "alpha", "span")                             # mark_... for one mark
+
+
+def _check_highlight(highlight, look=None):
+    """highlight as given: None, "spikes", or a list of ranges; anything else is an error.
+
+    Each range is [lo, hi], or a dict {"range": [lo, hi], "label": ..., and any of
+    color, alpha, hatch, edge_color, edge_width, edge_style for this range only}.
+    Returns None, "spikes" or a list of dicts.
+    """
     if highlight is None or highlight == "spikes":
         return highlight
-    ok = isinstance(highlight, (list, tuple)) and all(
-        isinstance(r, (list, tuple)) and len(r) == 2
-        and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in r) for r in highlight)
-    if not ok:
-        raise ValueError(f'highlight must be "spikes" or a list of x ranges such as [[1570, 1640]]; got {highlight!r}.')
-    return [tuple(r) for r in highlight]
+    example = 'highlight must be "spikes" or a list of x ranges such as [[1570, 1640]] or ' \
+              '[{"range": [1570, 1640], "label": "G band", "color": "blue"}]'
+
+    def is_range(r):
+        return isinstance(r, (list, tuple)) and len(r) == 2 and all(
+            isinstance(v, (int, float)) and not isinstance(v, bool) for v in r)
+    if not isinstance(highlight, (list, tuple)):
+        raise ValueError(f"{example}; got {highlight!r}.")
+    items = []
+    for r in highlight:
+        item = dict(r) if isinstance(r, dict) else {"range": r}
+        if not is_range(item.get("range")):
+            raise ValueError(f"{example}; got {r!r}.")
+        unknown = set(item) - {"range", "label", *_RANGE_KEYS}
+        if unknown:
+            raise ValueError(f"highlight: unknown key(s) {', '.join(sorted(unknown))}; use range, label, "
+                             f"{', '.join(_RANGE_KEYS)}.")
+        for key in _RANGE_KEYS:
+            if key in item:
+                _check_one(f"highlight_{key}", item[key])
+        item["range"] = tuple(item["range"])
+        items.append(item)
+    return items
+
+
+def _check_marks(marks):
+    """marks as given: a list of x, or a dict x -> label or x -> {"label": ..., and own mark settings}."""
+    if not marks:
+        return []
+    if isinstance(marks, dict):
+        items = []
+        for x, value in marks.items():
+            item = dict(value) if isinstance(value, dict) else {"label": value}
+            unknown = set(item) - {"label", *_MARK_KEYS}
+            if unknown:
+                raise ValueError(f"marks: unknown key(s) {', '.join(sorted(unknown))}; use label, "
+                                 f"{', '.join(_MARK_KEYS)}.")
+            for key in _MARK_KEYS:
+                if key in item:
+                    _check_one(f"mark_{key}", item[key])
+            items.append({"x": float(x), "label": str(item.pop("label", f"{float(x):g}")), **item})
+        return items
+    if not isinstance(marks, (list, tuple)) or not all(
+            isinstance(m, (int, float)) and not isinstance(m, bool) for m in marks):
+        raise ValueError(f'marks must be a list of x such as [1585, 1620] or a dict such as {{1620: "C=C"}}; '
+                         f'got {marks!r}.')
+    return [{"x": float(m), "label": f"{m:g}"} for m in marks]
 
 
 def _inside(ranges, lines):
@@ -107,12 +157,25 @@ def _inside(ranges, lines):
     return [(a, b) for a, b in ranges if max(a, b) >= lo and min(a, b) <= hi]
 
 
-def _shade(ax, ranges, color="tab:red", alpha=0.15):
-    """Shade x ranges (e.g. spikes or a region of interest) on the axes."""
-    for lo, hi in ranges:
+def _shade(ax, ranges, look, spikes: bool = True):
+    """Shade x ranges: spikes (spike_color, spike_alpha) or highlighted ranges (dicts, highlight_...)."""
+    look = look or DEFAULTS
+    for item in ranges:
+        if spikes:
+            item = {"range": item, "color": look["spike_color"], "alpha": look["spike_alpha"], "hatch": None,
+                    "edge_color": None}
+
+        def own(key):                                            # the range's own value, else the style's
+            return item[key] if key in item else look[f"highlight_{key}"]
+        lo, hi = item["range"]
         if lo == hi:                                             # a 1-point range: make it visible
             lo, hi = lo - 0.5, hi + 0.5
-        ax.axvspan(lo, hi, color=color, alpha=alpha, lw=0)
+        edge = own("edge_color")
+        hatch = own("hatch")
+        ax.axvspan(lo, hi, facecolor=to_rgba(own("color"), own("alpha")),
+                   edgecolor=to_rgba(edge) if edge is not None else "none",
+                   lw=own("edge_width") if edge is not None else 0, ls=own("edge_style"), hatch=hatch,
+                   hatchcolor=to_rgba(edge if edge is not None else own("color")) if hatch else None)
 
 
 def _zoom(ax, region, lines):
@@ -128,28 +191,77 @@ def _zoom(ax, region, lines):
         ax.set_ylim(a - pad, b + pad)
 
 
-def _label_peaks(ax, x, y, peaks, look, region=None):
-    """Write the position above the most prominent bands of one line.
+def _height_at(spectra, lo, hi=None):
+    """Highest y of the drawn spectra at x = lo (or within lo..hi); None where nothing is drawn."""
+    tops = []
+    for x, y, _ in spectra:
+        if hi is None:
+            if min(x) <= lo <= max(x):
+                order = np.argsort(x)
+                tops.append(float(np.interp(lo, x[order], y[order])))
+        else:
+            inside = y[(x >= min(lo, hi)) & (x <= max(lo, hi))]
+            if inside.size:
+                tops.append(float(inside.max()))
+    return max(tops) if tops else None
 
-    peaks : number of bands to label (the most prominent), or a list of x
-        positions (each labelled at the highest point within 3 points).
+
+def _write(ax, text: str, x: float, y: float | None, what: str, look, color=None, line=None, pad=None):
+    """Write one label (what: mark_label, peak_label or highlight_label) with its own settings.
+
+    y is the top of the spectrum there, used for position "peak" (None: put it at the top);
+    line: settings of a line from (x, y) up to the label (peak_line); pad: distance in
+    points when the caller has already chosen it. Returns the text.
     """
+    import matplotlib as mpl
+    plain = look is None                                         # "matplotlib" preset: its own font
+    look = look or {**DEFAULTS, "font_size": mpl.rcParams["font.size"]}
+
+    def get(key):
+        return look[f"{what}_{key}"]
+    on_peak = get("position") == "peak" and y is not None
+    pad = get("pad") if pad is None else pad
+    if pad is None:                                              # automatic distance
+        pad = 15 if line else 3 if on_peak else 0
+    if on_peak:
+        xy, coords = (x, y), "data"
+    else:                                                        # just above the box
+        xy, coords = (x, 1.0), ("data", "axes fraction")
+    arrow = None
+    if line:
+        arrow = dict(arrowstyle="-", color=to_rgba(line["color"], line["alpha"]), lw=line["width"],
+                     ls=line["style"], shrinkA=1, shrinkB=1)
+    t = ax.annotate(text, xy, xycoords=coords, xytext=(0, pad), textcoords="offset points", ha="center",
+                    va="bottom", annotation_clip=False, arrowprops=arrow)
+    size = get("size") if get("size") is not None else look["font_size"] * 0.75
+    _style_text(t, look, size=size, weight=get("weight") or look["font_weight"],
+                color=color if color is not None else get("color"), alpha=get("alpha"), italic=get("italic"),
+                font=get("font"), rotation=get("rotation"))
+    if plain:
+        t.set_fontfamily(mpl.rcParams["font.family"])
+    if get("box"):                                               # a box behind the text, so it stays readable
+        t.set_bbox(dict(boxstyle="round,pad=0.25", facecolor=to_rgba(get("fill"), get("fill_alpha")),
+                        edgecolor=_fill(get("box_color"), 1.0), lw=0.8))
+    ax._spectrum_texts = getattr(ax, "_spectrum_texts", []) + [t]   # for moving overlapping labels apart
+    return t
+
+
+def _band_positions(x, y, peaks, look, region=None):
+    """Indexes and refined x positions of the bands to label on one line (sorted x, y)."""
     from scipy.signal import find_peaks
-    order = np.argsort(x)
-    x, y = x[order], y[order]
     if region:
         keep = (x >= min(region)) & (x <= max(region))
         x, y = x[keep], y[keep]
     if isinstance(peaks, (int, np.integer)):
         # Prominence: how far a band stands out from the valleys on both sides,
         # so noise wiggles on a big band are not labelled.
-        idx, props = find_peaks(y, prominence=0.02 * np.ptp(y), distance=3)
+        sensitivity = look["peak_sensitivity"] if look else 0.02
+        idx, props = find_peaks(y, prominence=sensitivity * np.ptp(y), distance=3)
         idx = idx[np.argsort(props["prominences"])[::-1][:int(peaks)]]
     else:
         idx = [int(np.argmax(np.where(np.abs(np.arange(x.size) - np.argmin(np.abs(x - p))) <= 3, y, -np.inf)))
                for p in peaks]
-    size = (look["font_size"] if look else 10) * 0.75
-    pad = 0.02 * np.ptp(y)
+    found = []
     for i in idx:
         xp = x[i]
         if 0 < i < x.size - 1 and x[i - 1] < x[i] < x[i + 1]:
@@ -158,22 +270,97 @@ def _label_peaks(ax, x, y, peaks, look, region=None):
             a, b, _ = np.polyfit(x[i - 1:i + 2] - x[i], y[i - 1:i + 2], 2)
             if a < 0:
                 xp = x[i] - b / (2 * a)
-        ax.annotate(f"{xp:.0f}", (x[i], y[i] + pad), ha="center", va="bottom", rotation=90,
-                    fontsize=size, annotation_clip=False)
-    if len(idx):
-        top = max(y[i] for i in idx) + 0.12 * np.ptp(y)          # room for the labels
+        found.append((x[i], y[i], xp))
+    return found, (np.ptp(y) if y.size else 0.0)
+
+
+def _label_peaks(ax, spectra, peaks, look, region=None):
+    """Write the position above the most prominent bands of the chosen spectra (peak_spectra).
+
+    peaks : number of bands to label per spectrum (the most prominent), or a
+        list of x positions (each labelled at the highest point within 3 points).
+    """
+    which = look["peak_spectra"] if look else "first"
+    chosen = spectra[:1] if which == "first" else spectra if which == "all" else \
+        [spectra[k] for k in which if k < len(spectra)]
+    use = look or DEFAULTS
+    line = ({k: use[f"peak_line_{k}"] for k in ("color", "alpha", "width", "style")}
+            if use["peak_line"] else None)
+    tops, height = [], 0.0
+    for x, y, color in chosen:
+        order = np.argsort(x)
+        found, h = _band_positions(x[order], y[order], peaks, look, region)
+        height = max(height, h)
+        for xi, yi, xp in found:
+            automatic = use["peak_label_pad"] is None and line is None and use["peak_label_position"] == "peak"
+            # automatic distance (as before): 2 % of the data height above the band
+            y_at = yi + 0.02 * h if automatic else yi
+            label_color = color if use["peak_label_color"] == "line" else None
+            _write(ax, use["peak_label_format"].format(xp), xi, y_at, "peak_label", look, color=label_color,
+                   line=line, pad=0 if automatic else None)
+            tops.append(yi)
+    if tops and use["peak_label_position"] == "peak":
+        top = max(tops) + 0.12 * height                           # room for the labels
         if top > ax.get_ylim()[1]:
             ax.set_ylim(ax.get_ylim()[0], top)
 
 
-def _marks(ax, marks, look):
-    """Vertical dashed lines at given x, labelled at the top (dict x -> label, or a list of x)."""
-    items = marks.items() if isinstance(marks, dict) else [(m, f"{m:g}") for m in marks]
-    size = (look["font_size"] if look else 10) * 0.75
-    for xm, text in items:
-        ax.axvline(xm, color="0.4", ls=":", lw=0.9, zorder=0.6, marker="None")
-        ax.annotate(text, (xm, 1.0), xycoords=("data", "axes fraction"), ha="center", va="bottom",
-                    rotation=90, fontsize=size, annotation_clip=False)
+def _marks(ax, marks, look, spectra):
+    """Vertical lines at given x (marks, checked by _check_marks), each labelled."""
+    use = look or DEFAULTS
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(lo, hi)                                          # fixed: lines drawn to the bottom stay there
+    for item in marks:
+        def own(key):                                            # the mark's own value, else the style's
+            return item[key] if key in item else use[f"mark_{key}"]
+        xm, peak = item["x"], _height_at(spectra, item["x"])
+        kw = dict(color=to_rgba(own("color"), own("alpha")), ls=own("style"), lw=own("width"), zorder=0.6,
+                  marker="None")
+        span = own("span") if peak is not None else "full"
+        if span == "full":
+            ax.axvline(xm, **kw)
+        elif span == "peak":                                     # from the bottom up to the spectrum
+            ax.plot([xm, xm], [lo, peak], **kw)
+        else:                                                    # a short line above the spectrum
+            ax.plot([xm, xm], [peak + 0.02 * (hi - lo), peak + 0.08 * (hi - lo)], **kw)
+        if item["label"]:
+            above = peak if span != "tick" or peak is None else peak + 0.08 * (hi - lo)
+            _write(ax, item["label"], xm, above, "mark_label", look)
+
+
+def _highlight_labels(ax, items, look, spectra):
+    """The labels of highlighted ranges, centred above each range."""
+    for item in items:
+        if item.get("label"):
+            lo, hi = item["range"]
+            _write(ax, str(item["label"]), (lo + hi) / 2, _height_at(spectra, lo, hi), "highlight_label", look)
+
+
+def _separate(ax, look) -> None:
+    """Move labels that would overlap apart (label_overlap = "move"): up when they share an x, else sideways."""
+    from matplotlib.text import Text
+    texts = getattr(ax, "_spectrum_texts", [])
+    if len(texts) < 2 or (look or DEFAULTS)["label_overlap"] != "move":
+        return
+    renderer = ax.figure.canvas.get_renderer()
+    points = 72 / ax.figure.dpi                                  # pixels -> points
+
+    def box(t):                                                  # the text only, not its line to the band
+        t.update_positions(renderer)                             # place it at its current offset first
+        return Text.get_window_extent(t, renderer).padded(1)
+    placed = []
+    for t in sorted(texts, key=lambda t: (box(t).x0, box(t).y0)):
+        hits = [b for b in placed if box(t).overlaps(b)]
+        while hits:
+            mine, dx, dy = box(t), *t.xyann
+            other = hits[0]
+            side = min(mine.x1, other.x1) - max(mine.x0, other.x0)   # how much they overlap sideways
+            if side > 0.5 * mine.width:                          # nearly the same x: put it above the other
+                t.xyann = (dx, dy + (other.y1 - mine.y0 + 1) * points)
+            else:                                                # side by side: shift it right
+                t.xyann = (dx + (other.x1 - mine.x0 + 1) * points, dy)
+            hits = [b for b in placed if box(t).overlaps(b)]
+        placed.append(box(t))
 
 
 def _labels(ax, first: Data, look, xlabel, ylabel, title, invert_x):
@@ -265,14 +452,19 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     labels : legend labels, one per spectrum (or per collection for "mean");
         default the spectrum names.
     color : old name of the style setting line_color (one colour, or one per spectrum).
-    highlight : "spikes" shades the spikes removed by despike (from history);
-        a list of (lo, hi) shades those x ranges; None (default) shades nothing.
+    highlight : "spikes" shades the spikes removed by despike (from history,
+        spike_color); a list of x ranges [[lo, hi], ...] shades those
+        (highlight_color ...). A range can also be a dict with its own label
+        and settings: {"range": [1570, 1640], "label": "G band", "color": "blue"}.
+        None (default) shades nothing.
     emphasize : spectra to bring forward, by number (0 = first) or name, e.g.
         [0, 3]: drawn on top, thicker (emphasize_width) and solid; the others
         fade (faded_alpha). For "mean", the numbers count the collections.
-    peaks : label band positions on the first line: a number (that many of
-        the most prominent bands) or a list of x positions.
-    marks : vertical reference lines: a list of x, or a dict x -> label.
+    peaks : label band positions (on the first spectrum, or see peak_spectra):
+        a number (that many of the most prominent bands) or a list of x positions.
+    marks : vertical lines: a list of x, a dict x -> label, or x -> a dict
+        with the label and the mark's own settings, e.g.
+        {1620: {"label": "C=C", "color": "red", "style": "--"}}.
     title, xlabel, ylabel : text; the labels default to the units.
     invert_x : draw x from high to low.
     style : a preset ("clean" default, "publication", "matlab", "matplotlib"),
@@ -290,6 +482,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     if kind not in KINDS:
         raise ValueError(f"Unknown kind {kind!r}. Choose one of: {', '.join(KINDS)}.")
     highlight = _check_highlight(highlight)                         # a wrong value is an error, not ignored
+    marks = _check_marks(marks)
     if color is not None:                                           # old argument: same as line_color
         style_settings.setdefault("line_color", color)
     look = get_style(style, **style_settings)
@@ -300,6 +493,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
         rows = [_rows(item) for item in data]                       # (x, Y, names) per item
         n_total = sum(len(Y) for _, Y, _ in rows)
         drawn = []                                                   # (x, y) actually drawn, for zooming
+        spectra = []                                                 # (x, y, colour) of each spectrum line
         if kind == "image":
             if len(data) != 1 or len(rows[0][1]) < 2:
                 raise ValueError('kind="image" shows one collection of at least 2 spectra.')
@@ -329,7 +523,7 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
                 line = _draw(ax, x, m, i, colors[i], look, chosen, 0.0, label=f"{labels[i]} (n={len(Y)})")
                 ax.fill_between(x, m - sd, m + sd, color=line.get_color(), alpha=0.25, lw=0)
                 drawn += [(x, m - sd), (x, m + sd)]
-            first_line = (rows[0][0], rows[0][1].mean(axis=0))
+                spectra.append((x, m, line.get_color()))
             n_lines = len(rows)
         else:
             all_names = [n for _, _, names in rows for n in names]
@@ -353,8 +547,10 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
                     drawn.append((x, y))
                     if n_total > _HUGE and not chosen:
                         segments.append(np.column_stack([x, y]))      # drawn together below, much faster
+                        spectra.append((x, y, colors[k]))
                     else:
-                        _draw(ax, x, y, k, colors[k], look, chosen, base, label=labels[k])
+                        line = _draw(ax, x, y, k, colors[k], look, chosen, base, label=labels[k])
+                        spectra.append((x, y, line.get_color()))
                     k += 1
             if segments:
                 from matplotlib.collections import LineCollection
@@ -368,23 +564,25 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
                 ax.autoscale_view()
             if kind == "stack":
                 ax.set_yticks([])                                    # absolute values mean little once shifted
-            first_line = drawn[0]
             n_lines = n_total
         if highlight == "spikes":
             # spikes outside the drawn x range (cut off by trim) would stretch the axis: skip them
-            _shade(ax, _inside([r for item in data for r in _spike_ranges(item)], drawn))
+            _shade(ax, _inside([r for item in data for r in _spike_ranges(item)], drawn), look)
         elif highlight:
-            _shade(ax, highlight, color="tab:orange")
+            _shade(ax, highlight, look, spikes=False)
         if region:
             _zoom(ax, region, drawn)
         if peaks is not None:
-            _label_peaks(ax, *first_line, peaks, look, region)
+            _label_peaks(ax, spectra, peaks, look, region)
         if marks:
-            _marks(ax, marks, look)
+            _marks(ax, marks, look, spectra)
+        if highlight and highlight != "spikes":
+            _highlight_labels(ax, highlight, look, spectra)
         _labels(ax, data[0], look, xlabel, ylabel if kind != "stack" else (ylabel or "Intensity (shifted)"),
                 title, invert_x)
         legend(ax, look, n_lines)
         finish_axes(ax, look)
+        _separate(ax, look)
         _save(ax, save, look)
     return ax
 
@@ -461,12 +659,12 @@ def compare(before: Data, after: Data, index: int | str = 0, *, region: tuple[fl
             ax.plot(b.x, b.y - a.y, "--", color=second, label="baseline")
         # Shade spikes only when the step shown is despike (not earlier steps).
         spikes = [(e["x_from"], e["x_to"]) for e in step.get("spikes", {}).get(a.name, [])]
-        _shade(ax, spikes)
+        _shade(ax, spikes, look)
         if removed:
             low.plot(b.x, b.y - a.y, color="k")
             low.axhline(0, color="0.6", lw=0.6, marker="None")
             low.set_ylabel("removed")
-            _shade(low, spikes)
+            _shade(low, spikes, look)
         if region:
             _zoom(ax, region, drawn)
             if removed:
