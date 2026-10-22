@@ -30,8 +30,13 @@ POST /groups        JSON {"data": ...}: proposes groups (which sample each
 POST /style-check   JSON {"style": "publication" or {...settings...},
                     "settings": {...}}: checks a style (for example the
                     contents of a saved my_style.json) and returns every
-                    setting, the ones that differ from the defaults, and
-                    warnings (fonts not installed). A wrong setting gives 422.
+                    setting, the ones that differ from the defaults, the
+                    style file to download ("file"), older setting names
+                    it renamed, and warnings (fonts not installed). A wrong
+                    setting gives 422; with "lenient": true, unknown
+                    setting names are skipped and listed instead.
+GET  /example       three made-up example spectra, for trying things (and
+                    for the live preview) before a file is loaded.
 
 Data in answers always has the same fields, in this order (one row of "Y"
 per spectrum; sizes first, like MATLAB's size())::
@@ -49,8 +54,13 @@ Requests need only "x" and "Y" (plus optional "names", units, "history").
 Mistakes in a request (unknown method, wrong setting, unreadable file) give
 HTTP 422 with the same plain-English message the library gives.
 
-"style" in a request is a preset name or a dict of settings; the service
-never opens a file named in a request (a style file is sent as its contents).
+"style" in a request is a preset name, a dict of settings, or the contents
+of a style file; the service never opens a file named in a request (a style
+file is sent as its contents).
+
+Live preview: the website asks /figure for the same figure at a low "dpi"
+(for example 60, "format": "png"); the size in cm stays the same, so the
+preview has exactly the layout of the download.
 
 Run locally::
 
@@ -260,7 +270,7 @@ _TINY = {"x": [100, 101, 102, 103, 104, 105, 106, 107, 108, 109],
          "names": ["a", "b"], "x_unit": "cm-1", "y_unit": "counts"}
 EXAMPLE_PROCESS = {"data": _TINY, "recipe": {"steps": [{"step": "normalize", "method": "max"}]}, "all_steps": False}
 EXAMPLE_STYLE = {"style": {"preset": "publication", "line_width": 1.5, "font": "Arial"},
-                 "settings": {"legend_box": True}}
+                 "settings": {"legend_box": True}, "name": "My paper style", "lenient": False}
 EXAMPLE_FIGURE = {"data": _TINY, "kind": "lines", "style": "publication", "settings": {"line_width": 1.5},
                   "title": "Example", "format": "png", "dpi": 300, "name": "example"}
 
@@ -513,26 +523,61 @@ def set_or_suggest_groups(body: dict = Body(..., examples=[{"data": _TINY, "grou
 def style_check(body: dict = Body(..., examples=[EXAMPLE_STYLE])) -> dict:
     """Check a style and return it in full, before it is used or saved.
 
-    "style" is a preset name or a dict of settings (for example the contents
-    of a style file the user saved earlier); "settings" are changes on top.
-    The answer:
-      "style"    every setting, as save_style writes it: ready to save as
-                 my_style.json and load again here or in Python
+    "style" is a preset name, a dict of settings, or the contents of a style
+    file the user saved earlier; "settings" are changes on top; "name" names
+    the style in "file". The answer:
+      "style"    every setting: the style as it will be drawn.
+      "file"     the style file to download as my_style.json (only the
+                 settings that differ from the preset, with type, version
+                 and name); it loads again here, in /figure, or in Python
                  (stk.get_style("my_style.json")).
       "changed"  only the settings that differ from the defaults, to show
                  what the style contains.
-      "warnings" fonts the style asks for that are not installed on the server.
-    A wrong setting name or value answers 422 with a message naming it.
+      "renamed"  older setting names in the request and their current names,
+                 e.g. {"ticks": "tick_direction"} (the style still works).
+      "skipped"  with "lenient": true, setting names this toolkit does not
+                 know (a typo, or a file from a newer version), left out.
+      "warnings" plain-text notes for the user: renamed and skipped settings,
+                 and fonts not installed on the server.
+    A wrong value (or, without "lenient", an unknown name) answers 422 with
+    a message naming the setting.
     """
-    from .style import DEFAULTS, get_style, missing_fonts
+    from .style import _OLD_NAMES, DEFAULTS, SETTINGS, _unpack, get_style, missing_fonts, style_file
     settings = body.get("settings") or {}
     if not isinstance(settings, dict):
         raise ValueError('"settings" must be a dict of settings, e.g. {"line_width": 1.5}.')
     style = _style(body)
+    if isinstance(style, dict):
+        style = _unpack(dict(style))                             # a style file's contents become plain settings
+    asked = (list(style) if isinstance(style, dict) else []) + list(settings)
+    renamed = {old: _OLD_NAMES[old] for old in asked if old in _OLD_NAMES}
+    skipped = []
+    if body.get("lenient"):                                      # leave out names this toolkit does not know
+        known = set(SETTINGS) | set(_OLD_NAMES) | {"preset"}
+        skipped = [k for k in asked if k not in known]
+        if isinstance(style, dict):
+            style = {k: v for k, v in style.items() if k in known}
+        settings = {k: v for k, v in settings.items() if k in known}
     full = get_style(style, **settings)
+    file = style_file(style, name=str(body.get("name") or ""), **settings)
+    warnings = [f"{old} is now called {new}; the style file uses the new name." for old, new in renamed.items()]
+    if skipped:
+        warnings.append(f"Not known to this toolkit, so left out: {', '.join(skipped)}.")
     if full is None:                                             # "matplotlib": matplotlib's own look, nothing set
-        return {"style": {"preset": "matplotlib"}, "changed": {}, "warnings": []}
+        return {"style": {"preset": "matplotlib"}, "file": file, "changed": {}, "renamed": renamed,
+                "skipped": skipped, "warnings": warnings}
     changed = {k: v for k, v in full.items() if _plain(v) != _plain(DEFAULTS[k])}
-    warning = _font_warning(missing_fonts(full))
-    return {"style": _plain({"preset": "clean", **full}), "changed": _plain(changed),
-            "warnings": [warning] if warning else []}
+    font = _font_warning(missing_fonts(full))
+    return {"style": _plain({"preset": "clean", **full}), "file": file, "changed": _plain(changed),
+            "renamed": renamed, "skipped": skipped, "warnings": warnings + ([font] if font else [])}
+
+
+@app.get("/example")
+def example_spectra() -> dict:
+    """Three made-up example spectra (the ones in the documentation pictures).
+
+    The answer starts with "kind": "lines", so it can be sent to /figure as it
+    is; the page uses it for the live preview before a file is loaded.
+    """
+    from .example import example
+    return {"kind": "lines", "data": to_json(example())}

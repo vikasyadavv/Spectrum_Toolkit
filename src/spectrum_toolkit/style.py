@@ -20,6 +20,21 @@ Use it in any plot, in four equivalent ways::
 the session. Because a style is plain data (it can be stored as JSON), the
 website can later send the same settings to the server.
 
+Style files
+-----------
+``stk.save_style(style, "my_style")`` writes ``my_style.json`` with only the
+settings that differ from the preset, plus what the file is::
+
+    {"type": "spectrum-toolkit style", "version": 1, "name": "my_style",
+     "saved": "2026-10-22", "toolkit": "0.0.1", "preset": "publication",
+     "settings": {"line_width": 1.2, "font": "Arial"}}
+
+Settings added to the toolkit later get their default, and an improved
+default reaches the file too. ``only_changed=False`` writes every setting.
+("type" names the file; "format" would clash with the setting of that name.)
+Older files (every setting, no "type") still load, and so do older
+setting names (``ticks`` is now ``tick_direction``).
+
 Presets
 -------
 "clean"        default: light grid, open box (left and bottom lines only),
@@ -498,6 +513,39 @@ def _renamed(settings: dict) -> dict:
     return {_OLD_NAMES.get(k, k): v for k, v in settings.items()}
 
 
+# What a style file is: its "type" and the newest "version" this toolkit reads.
+# ("type", not "format": format is already a setting, the figure's file type.)
+STYLE_FILE_TYPE = "spectrum-toolkit style"
+STYLE_FILE_VERSION = 1
+
+
+def _unpack(style: dict) -> dict:
+    """A style file's contents as plain settings ("preset" plus settings); any other dict is returned as it is."""
+    if "type" not in style:                                      # a plain dict, or a file from before version 1
+        return style
+    if style["type"] != STYLE_FILE_TYPE:
+        raise ValueError(f'This is not a style file: "type" is {style["type"]!r}, '
+                         f"expected {STYLE_FILE_TYPE!r}.")
+    version = style.get("version")
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise ValueError(f'The style file\'s "version" must be a whole number of 1 or more; got {version!r}.')
+    if version > STYLE_FILE_VERSION:                            # written by a newer toolkit
+        raise ValueError(f"This style file is version {version}, saved by spectrum_toolkit "
+                         f"{style.get('toolkit', '(unknown version)')}; this toolkit reads up to version "
+                         f"{STYLE_FILE_VERSION}. Update spectrum_toolkit to read it.")
+    settings = style.get("settings") or {}
+    if not isinstance(settings, dict) or "preset" in settings:
+        raise ValueError('The style file\'s "settings" must be a dict of settings, e.g. {"line_width": 1.5}, '
+                         'with the preset in "preset" next to it.')
+    preset = style.get("preset")
+    return dict(settings) if preset is None else {"preset": preset, **settings}
+
+
+def _same(a, b) -> bool:
+    """True when two setting values are equal once saved as JSON (a tuple and a list with the same items are)."""
+    return json.dumps(a, default=list, sort_keys=True) == json.dumps(b, default=list, sort_keys=True)
+
+
 def _check(settings: dict) -> None:
     """Unknown setting names are an error, with the list of valid ones."""
     wrong = set(settings) - set(SETTINGS) - {"preset"}
@@ -664,8 +712,9 @@ def get_style(style: str | dict | Path | None = None, **changes: Any) -> dict[st
     Parameters
     ----------
     style : None (the session default, see set_style), a preset name, a path
-        to a JSON file saved with save_style, or a dict of settings (with an
-        optional "preset" key it starts from; otherwise from the session default).
+        to a JSON file saved with save_style, the contents of such a file, or
+        a dict of settings (with an optional "preset" key it starts from;
+        otherwise from the session default).
     **changes : settings to change on top, e.g. box_width=2.
 
     Returns a dict with every setting, or None for the "matplotlib" preset
@@ -677,7 +726,7 @@ def get_style(style: str | dict | Path | None = None, **changes: Any) -> dict[st
         style = json.loads(Path(style).read_text(encoding="utf-8"))
     if isinstance(style, str):
         style = {"preset": style}
-    style = _renamed(dict(style))
+    style = _renamed(_unpack(dict(style)))                   # a style file's contents become plain settings
     changes = _renamed(changes)
     _check(style)
     _check(changes)
@@ -710,11 +759,59 @@ def set_style(style: str | dict | Path | None = "clean", **changes: Any) -> None
     _session_default = {"preset": "matplotlib"} if full is None else {"preset": "clean", **full}
 
 
-def save_style(style: str | dict, path: str | Path, **changes: Any) -> Path:
-    """Save a style (every setting) to a JSON file, to reuse with style="file.json"."""
-    full = get_style(style, **changes) or {}
+def _preset_of(style) -> str:
+    """The preset a style starts from: its "preset", else the session default's."""
+    if isinstance(style, Path) or (isinstance(style, str) and style.endswith(".json")):
+        style = json.loads(Path(style).read_text(encoding="utf-8"))
+    if isinstance(style, str):
+        return style
+    if isinstance(style, dict):
+        preset = _unpack(dict(style)).get("preset")
+        if preset is not None:
+            return preset
+    return _session_default["preset"]                          # "clean", or "matplotlib" after set_style("matplotlib")
+
+
+def style_file(style: str | dict | Path | None = None, *, name: str = "", only_changed: bool = True,
+               **changes: Any) -> dict:
+    """A style as the contents of a style file (version 1), ready to save as JSON.
+
+    Parameters
+    ----------
+    style, **changes : as in get_style.
+    name : the style's name, shown to the user (e.g. "My paper style").
+    only_changed : True keeps only the settings that differ from the preset;
+        False keeps every setting.
+
+    >>> f = style_file("publication", name="paper", line_width=2)
+    >>> f["preset"], f["settings"]
+    ('publication', {'line_width': 2})
+    """
+    from . import __version__
+    from datetime import date
+    full = get_style(style, **changes)
+    preset = _preset_of(style)
+    base = get_style(preset) or dict(DEFAULTS)                 # the preset's own settings ("matplotlib": the defaults)
+    if full is None:                                           # "matplotlib" with nothing changed
+        settings = {}
+    elif only_changed:
+        settings = {k: v for k, v in full.items() if not _same(v, base[k])}
+    else:
+        settings = full
+    return {"type": STYLE_FILE_TYPE, "version": STYLE_FILE_VERSION, "name": str(name),
+            "saved": date.today().isoformat(), "toolkit": __version__, "preset": preset,
+            "settings": json.loads(json.dumps(settings, default=list))}
+
+
+def save_style(style: str | dict, path: str | Path, *, name: str | None = None, only_changed: bool = True,
+               **changes: Any) -> Path:
+    """Save a style to a JSON file (see style_file), to reuse with style="file.json".
+
+    name defaults to the file name; only_changed=False writes every setting.
+    """
     path = Path(path).with_suffix(".json")
-    path.write_text(json.dumps({"preset": "clean", **full}, indent=2, default=list), encoding="utf-8")
+    contents = style_file(style, name=path.stem if name is None else name, only_changed=only_changed, **changes)
+    path.write_text(json.dumps(contents, indent=2), encoding="utf-8")
     return path
 
 
@@ -1337,4 +1434,4 @@ def export(fig_or_ax, name: str | Path = "figure", *, folder: str | Path | None 
     return path
 
 
-__all__ = ["get_style", "set_style", "save_style", "export", "to_rgba", "SETTINGS", "PRESETS", "PALETTES", "SIZES"]
+__all__ = ["get_style", "set_style", "save_style", "style_file", "export", "to_rgba", "SETTINGS", "PRESETS", "PALETTES", "SIZES"]

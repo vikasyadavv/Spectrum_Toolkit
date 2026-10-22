@@ -9,7 +9,10 @@ marks, line names, scale bar, mean band, image options, notes, inset, panels, ti
 `panel_spacing_x` / `panel_spacing_y`, one figure legend, shared axis titles, one shared colour bar; all off by
 default). Item 15, the service part (`POST /style-check`), built too. Item 12 g (before/after views as panels) and h
 (groups stored with the data: set five ways, suggested but never guessed, colour / mean / panel per group) built
-too. Waiting in `docs/bucket_list.md`: saved styles on the website (15 A), item 16, and uploading several files at once.
+too. Items 15 A and 16, the toolkit and service part, built too: style files keep only what changed (with type,
+version and name), `/style-check` answers the file to download, renamed and skipped settings, and `GET /example`
+gives example spectra for the live preview, which uses `/figure` at a low dpi (no separate endpoint). Waiting in
+`docs/bucket_list.md`: the website page for 15 A and 16, and uploading several files at once.
 
 This list is **for discussion only**. No code has changed. Each item says:
 - what the code **already does** (with the setting name, so you can try it today);
@@ -210,9 +213,9 @@ The settings table in the reference is **generated from the code** (`SETTINGS` i
 - `tight` margins on/off.
 - A font list check: a warning when the font is missing (now in the log only; add it to the answer).
 
-**Reusable styles on the website:** a user saves their own style (all the settings above) and reloads it. The Python side already exists (`save_style`); the website would store the JSON.
+**Reusable styles on the website:** a user saves their own style (all the settings above) and reloads it. The Python side already exists (`save_style`); the website would store the JSON. *(Service part built: style files version 1, `/style-check` with `"file"`.)*
 
-**One `/style-preview` endpoint:** draws a small sample figure with the current settings in a fraction of a second, so the website can show changes live while a user drags a slider.
+**One `/style-preview` endpoint:** draws a small sample figure with the current settings in a fraction of a second, so the website can show changes live while a user drags a slider. *(Decided: no separate endpoint; the page asks `/figure` at a low dpi, about 0.1 s, with `GET /example` before a file is loaded.)*
 
 **Validation:** every new setting is checked (wrong name, colour, number or choice → a clear 422 message naming the setting and its allowed values), as we did for `highlight`.
 

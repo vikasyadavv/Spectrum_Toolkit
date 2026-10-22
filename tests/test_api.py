@@ -288,6 +288,41 @@ def test_style_check_wrong_settings_and_no_files():
         assert r.status_code == 422 and "preset name" in r.json()["detail"]
 
 
+def test_style_check_gives_the_file_renamed_and_skipped():
+    """The answer carries the style file to download; older names are renamed; lenient skips unknown names."""
+    from spectrum_toolkit.style import _same, get_style
+    asked = {"style": {"preset": "matlab", "ticks": "out", "line_width": 3}, "name": "My paper style"}
+    r = client.post("/style-check", json=asked).json()
+    f = r["file"]
+    assert f["type"] == "spectrum-toolkit style" and f["name"] == "My paper style" and f["preset"] == "matlab"
+    assert f["settings"] == {"tick_direction": "out", "line_width": 3}          # only what differs from matlab
+    assert r["renamed"] == {"ticks": "tick_direction"} and "now called tick_direction" in r["warnings"][0]
+    assert _same(get_style(f), get_style(r["style"]))                           # the file draws the same style
+    again = client.post("/style-check", json={"style": f}).json()               # a downloaded file loads again
+    assert again["file"]["settings"] == f["settings"] and again["renamed"] == {}
+    newer = {**f, "settings": {**f["settings"], "glow": 2}}                      # a setting from a newer version
+    assert client.post("/style-check", json={"style": newer}).status_code == 422
+    r = client.post("/style-check", json={"style": newer, "settings": {"typo_width": 1}, "lenient": True}).json()
+    assert r["skipped"] == ["glow", "typo_width"] and any("left out: glow, typo_width" in w for w in r["warnings"])
+    assert r["file"]["settings"] == f["settings"]
+    r = client.post("/figure", json={"data": sample(), "style": f, "dpi": 30})  # /figure takes the file as it is
+    assert r.status_code == 200
+    r = client.post("/style-check", json={"style": {**f, "version": 2}})
+    assert r.status_code == 422 and "Update spectrum_toolkit" in r.json()["detail"]
+
+
+def test_example_spectra_for_the_preview():
+    """GET /example: three spectra, ready to send to /figure (as the live preview does at low dpi)."""
+    r = client.get("/example").json()
+    assert r["kind"] == "lines" and r["data"]["names"] == ["Sample A", "Sample B", "Sample C"]
+    assert r["data"]["size_Y"] == [3, 1400]
+    preview = client.post("/figure", json={**r, "style": "publication", "dpi": 60, "format": "png"})
+    full = client.post("/figure", json={**r, "style": "publication", "dpi": 120, "format": "png"})
+    from PIL import Image
+    small, big = (Image.open(io.BytesIO(x.content)).size for x in (preview, full))
+    assert abs(big[0] - 2 * small[0]) <= 2 and abs(big[1] - 2 * small[1]) <= 2  # same figure, half the pixels
+
+
 def test_groups_proposed_set_and_kept():
     body = {"data": {**sample(4), "names": ["CV 1", "CV 2", "MB 1", "MB 2"]}}
     r = client.post("/groups", json=body).json()

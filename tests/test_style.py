@@ -105,6 +105,53 @@ def test_session_default_and_json(tmp_path):
     assert ax.get_lines()[0].get_linewidth() == 3 and ax.get_box_aspect() == 1
 
 
+def test_style_file_keeps_only_what_changed(tmp_path):
+    """A saved style file names itself, keeps only settings that differ from its preset, and draws the same."""
+    import json
+    from spectrum_toolkit.style import _same
+    path = stk.save_style("publication", tmp_path / "paper", line_width=2, tick_sides=("bottom", "left"))
+    f = json.loads(path.read_text())
+    assert f["type"] == "spectrum-toolkit style" and f["version"] == 1 and f["name"] == "paper"
+    assert f["preset"] == "publication" and f["toolkit"] == stk.__version__ and len(f["saved"]) == 10
+    assert f["settings"] == {"line_width": 2, "tick_sides": ["bottom", "left"]}   # nothing else
+    assert _same(stk.get_style(path), stk.get_style("publication", line_width=2, tick_sides=("bottom", "left")))
+    ax = three().plot(style=str(path))
+    assert ax.get_lines()[0].get_linewidth() == 2
+    every = stk.style_file("matlab", name="all", only_changed=False, format="pdf")  # "format" is a setting too
+    assert len(every["settings"]) == len(SETTINGS) and every["settings"]["format"] == "pdf"
+    assert _same(stk.get_style(every), stk.get_style("matlab", format="pdf"))
+    assert stk.style_file("matplotlib")["settings"] == {} and stk.get_style(stk.style_file("matplotlib")) is None
+
+
+def test_style_file_session_default_and_older_files(tmp_path):
+    """A dict without preset is saved against the session default's preset; older files still load."""
+    import json
+    from spectrum_toolkit.style import _same
+    stk.set_style("publication", box_width=3)
+    f = stk.style_file({"grid": True})
+    assert f["preset"] == "clean" and f["settings"]["box_width"] == 3            # the session's changes are kept
+    assert _same(stk.get_style(f), stk.get_style({"grid": True}))
+    stk.set_style()
+    old = {"preset": "clean", **stk.get_style("matlab", line_width=4)}         # a file saved before version 1
+    old["ticks"] = old.pop("tick_direction")                                    # with an older setting name
+    (tmp_path / "old.json").write_text(json.dumps(old, default=list))
+    assert stk.get_style(str(tmp_path / "old.json"))["tick_direction"] == "in"
+    with pytest.raises(ValueError, match="version 2.*Update spectrum_toolkit"):
+        stk.get_style({"type": "spectrum-toolkit style", "version": 2, "toolkit": "9.0", "settings": {}})
+    with pytest.raises(ValueError, match="not a style file"):
+        stk.get_style({"type": "recipe", "version": 1})
+    with pytest.raises(ValueError, match='"preset" next to it'):
+        stk.get_style({"type": "spectrum-toolkit style", "version": 1, "settings": {"preset": "clean"}})
+    with pytest.raises(ValueError, match="nonsense"):                          # unknown names stay an error
+        stk.get_style({"type": "spectrum-toolkit style", "version": 1, "settings": {"nonsense": 1}})
+
+
+def test_example_spectra():
+    """stk.example(): three fixed made-up spectra (the documentation pictures use them)."""
+    a, b = stk.example(), stk.example()
+    assert a.Y.shape == (3, 1400) and np.array_equal(a.Y, b.Y) and a.names == ("Sample A", "Sample B", "Sample C")
+
+
 def test_scatter_groups_like_gscatter():
     """One colour and legend entry per group, in order of appearance; zero line drawn."""
     rng = np.random.default_rng(0)

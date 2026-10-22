@@ -21,17 +21,39 @@ stk.save_style("matlab", "my_style", box_width=2)   # reuse with style="my_style
 `/options` lists every setting with its default and meaning, so the website
 can build its controls from it.
 
-**Saved styles on the website (`/style-check`):** a style file saved with
-`stk.save_style` (or by the website) is sent as its contents, never as a file
-name: the service opens no files. `"style"` is a preset name or a dict:
+**Style files:** `stk.save_style` writes only the settings that differ from
+the preset, plus what the file is, so the file stays short and readable:
 ```json
-{"style": {"preset": "publication", "line_width": 1.5}, "settings": {"legend_box": true}}
+{"type": "spectrum-toolkit style", "version": 1, "name": "my_style", "saved": "2026-10-22",
+ "toolkit": "0.0.1", "preset": "matlab", "settings": {"box_width": 2}}
 ```
-The answer has `"style"` (every setting, ready to save as `my_style.json` and to
-load again on the website or in Python with `style="my_style.json"`),
-`"changed"` (only the settings that differ from the defaults) and `"warnings"`
-(fonts not installed on the server). A wrong setting gives the same message as
-in Python.
+Settings added later get their default, and an improved default reaches the
+file too. `stk.save_style(..., only_changed=False)` writes every setting;
+`stk.style_file(...)` gives the same contents as a dict without saving.
+Older files (every setting, no `"type"`) and older setting names (`ticks`,
+now `tick_direction`) still load. A file from a newer toolkit version says so
+and asks for an update.
+
+**Saved styles on the website (`/style-check`):** a style file is sent as its
+contents, never as a file name: the service opens no files. `"style"` is a
+preset name, a dict, or a style file's contents:
+```json
+{"style": {"preset": "publication", "line_width": 1.5}, "settings": {"legend_box": true}, "name": "My paper style"}
+```
+The answer has `"style"` (every setting: the style as it will be drawn),
+`"file"` (the style file to download as `my_style.json`, to load again on the
+website or in Python with `style="my_style.json"`), `"changed"` (only the
+settings that differ from the defaults), `"renamed"` (older setting names and
+their new names) and `"warnings"` (fonts not installed on the server, renamed
+and skipped settings). A wrong setting gives the same message as in Python.
+With `"lenient": true`, setting names this toolkit does not know (a typo, or a
+file from a newer version) are left out and listed in `"skipped"` instead.
+
+**Live preview on the website:** the page asks `/figure` for the same figure
+at a low `"dpi"` (for example 60, `"format": "png"`). The size in cm stays the
+same, so the preview has exactly the layout of the download. Before a file is
+loaded, `GET /example` gives the three example spectra used in the pictures
+here.
 
 A wrong name or value is an error that says what is allowed, for example
 `tick_alpha is a transparency from 0 (invisible) to 1 (solid); got 2.`

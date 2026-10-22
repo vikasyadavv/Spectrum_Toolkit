@@ -150,6 +150,9 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] M18 data with `"groups": [...]` (from M17) in `/figure` with `"color_by": "group",` (one colour per group), with `"kind": "mean", "color_by": "group",` (one mean per group), and with `"by": "group", "kind": "stack",` (one panel per group)
 - [ ] M19 a compare panel: `/process` with a baseline step, then `"panels": [{"data": <before>, "after": <after>, "kind": "compare", "index": 0}, {"data": <after>}], "layout": [2, 1], "share_x": true` (the "removed" strip under the first panel, boxes lined up)
 - [ ] M16 `/style-check` with `{"style": "publication", "settings": {"line_width": 2}}` → `"style"` lists every setting and `"changed"` only the ones that differ; with `"style": "my_style.json"` → 422 (the service opens no files)
+- [ ] M20 `/style-check` with `{"style": {"preset": "matlab", "ticks": "out", "line_width": 3}, "name": "My paper style"}` → `"file"` has `"type": "spectrum-toolkit style"`, the name, `"preset": "matlab"` and only `{"tick_direction": "out", "line_width": 3}` in `"settings"`; `"renamed"` is `{"ticks": "tick_direction"}`. Send that `"file"` back as `"style"` → the same answer
+- [ ] M21 the M20 file with `"glow": 2` added to its `"settings"` → 422 naming glow; with `"lenient": true` → 200, `"skipped": ["glow"]` and a warning
+- [ ] M22 `GET /example` → three spectra "Sample A" to "Sample C"; paste the whole answer into `/figure` with `"dpi": 60` (a small preview) and again with `"dpi": 300` (the same picture, larger)
 
 ## Not reachable from the page yet
 
