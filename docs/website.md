@@ -87,6 +87,29 @@ Security > Security rules > Create rule, "stkapi: only the Worker": when hostnam
 the site may ask); `https://stkapi.cheminations.com/health` answers 403 (the security rule).
 The page itself then works.
 
+## Tested live (2026-10-24, after setup)
+
+From outside, everything answered as planned: `stkapi` without the header 403 (security rule),
+with a guessed key 401 (the toolkit); the site route typed in the address bar or from another
+website 403, `/docs` 404, a GET on load 405, a form sent to figure 415; uploads of .asc, .wdf
+(map), .spc and .mat files 200, a misspelt .mat variable 422 with the toolkit's message; a
+60 dpi PNG figure with its file name, `no-store` and the font warning; `options` MISS then HIT.
+From a real cheminations.com page in a browser (`fetch('/api/stk/...')`): the same.
+
+What it means for the page:
+
+- **Check the file size in the browser first.** Cloudflare takes in the whole upload before the
+  Worker runs, so a 96 MB file was refused (413, "File larger than 95 MB") only after 56 s of
+  uploading. The page must say so at once, before sending.
+- **Previews:** drawing a 60 dpi preview takes 0.13 s on the VM; from the Mac (via Cloudflare
+  Singapore) a round trip is about 0.85 s even for `/health`. The page keeps showing the
+  previous picture while a new one is on its way.
+- **Rate limit:** 120 requests in a minute from one connection, then 429. Requests spread over
+  many parallel connections can reach different copies of the Worker, each counting on its
+  own, so it is a first line of defence (as for the Spectrum Explorer).
+- Test files made only of zeros (`mkfile`) upload very slowly through Cloudflare (about
+  50 KB/s); random data and real files go at about 1.1-1.8 MB/s. Use real or random files to test.
+
 ## Testing the Worker without deploying it
 
 `worker/test/` runs the Worker file, unchanged, in a browser against a local toolkit with a
