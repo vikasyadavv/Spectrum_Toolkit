@@ -26,6 +26,7 @@ Each feature moves through: proposed → agreed → built → approved.
 | 2026-10-21 | The service keeps nothing: each request carries its data; uploads are deleted once read | No storage, no logins, nothing private left on the VM; any number of copies can run. |
 | 2026-10-21 | Only cheminations.com may call the service from a browser (CORS); the container listens on 127.0.0.1 behind the VM's web server | Other websites cannot use our server; HTTPS stays with the existing web server. |
 | 2026-10-21 | The image includes matplotlib, so the website can offer publication figures (tiff, CMYK, 1200 dpi) | Browser plots are for looking; exported figures need the same look as `stk.export`. |
+| 2026-10-23 | Website route: cheminations.com/api/stk/* (Worker) -> stkapi.cheminations.com (tunnel) -> stk; secret key checked by the toolkit; 95 MB; 120 requests/min | Same route as the Spectrum Explorer; same address as the site (no cross-site setup); the VM has no web server, only the tunnel. See `website.md`. |
 | 2026-10-23 | Our own .wdf and Shimadzu .spc readers (numpy only), not the renishawWiRE / olefile packages | No dependency we do not control; the block layout is simple and every line can be checked against real WiRE files. |
 | 2026-10-20 | Code commented line by line in plain English; every function documented | Anyone can read what each line does. See `conventions.md`. |
 

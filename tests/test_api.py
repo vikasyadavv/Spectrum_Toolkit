@@ -188,6 +188,34 @@ def test_unexpected_error_is_explained(monkeypatch):
     assert r.status_code == 500 and "KeyError" in r.json()["detail"]
 
 
+def test_secret_key_is_required_when_set(monkeypatch):
+    """With a key set (as on the VM), every endpoint but /health needs it in X-STK-Key; a wrong key is refused."""
+    monkeypatch.setattr(api, "API_KEY", "s3cret-key")
+    assert client.get("/health").status_code == 200                       # Docker's health check needs no key
+    assert client.get("/example").status_code == 401                      # no key
+    assert client.get("/example", headers={"X-STK-Key": "wrong"}).status_code == 401
+    r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")})
+    assert r.status_code == 401 and "only the cheminations.com website" in r.json()["detail"]
+    assert client.get("/example", headers={"X-STK-Key": "s3cret-key"}).status_code == 200
+    assert "X-STK-Key" in json.dumps(client.get("/openapi.json").json())  # /docs shows "Authorize"
+
+
+def test_service_refuses_to_start_without_a_required_key(tmp_path):
+    """STK_REQUIRE_KEY=1 (the Docker image) without a key: the service stops at once with a clear message."""
+    import subprocess
+    import sys
+    env = {"STK_REQUIRE_KEY": "1", "PATH": "", "STK_API_KEY": ""}
+    run = subprocess.run([sys.executable, "-c", "import spectrum_toolkit.api"], env=env, capture_output=True,
+                         text=True)
+    assert run.returncode != 0 and "no key was given" in run.stderr
+    key = tmp_path / "key.txt"
+    key.write_text("abc123\n")                                             # read from a file, spaces trimmed
+    env.update(STK_API_KEY_FILE=str(key))
+    run = subprocess.run([sys.executable, "-c", "import spectrum_toolkit.api as a; print(a.API_KEY)"], env=env,
+                         capture_output=True, text=True)
+    assert run.returncode == 0 and run.stdout.strip() == "abc123"
+
+
 def test_load_answer_always_has_the_same_fields():
     """Sizes first (like MATLAB size), the same keys for every file; summary_only leaves out the numbers."""
     keys = ["n_spectra", "n_points", "size_Y", "size_x", "x_range", "names", "groups", "positions",

@@ -13,3 +13,7 @@ build/
 
 # Real data stays on this computer only (may be large or unpublished).
 data/
+
+# A secret key for the service (README, Docker example): never in git.
+key.txt
+*.key

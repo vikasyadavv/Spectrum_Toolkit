@@ -1,7 +1,9 @@
 # Docker image of the Spectrum Toolkit web service (spectrum_toolkit.api).
 #
 # Build:  docker build -t spectrum-toolkit .
-# Run:    docker run -d --name stk -p 127.0.0.1:8000:8000 --restart unless-stopped spectrum-toolkit
+# Run:    docker run -d --name stk -p 127.0.0.1:8100:8000 \
+#             -v ~/stk-secrets/api_key.txt:/run/secrets/stk_api_key:ro --restart unless-stopped spectrum-toolkit
+#         (the key file is made once on the VM: see docs/website.md)
 # Check:  curl http://127.0.0.1:8000/health
 #
 # Two stages: the first installs the exact package versions from uv.lock into
@@ -39,8 +41,13 @@ ENV PATH="/app/.venv/bin:$PATH" \
     # matplotlib keeps its font list here (the user's home is writable)
     MPLCONFIGDIR=/home/stk/.matplotlib \
     # settings of the service; change with docker run -e NAME=value
-    STK_MAX_UPLOAD_MB=200 \
-    STK_ALLOWED_ORIGINS=https://cheminations.com,https://www.cheminations.com
+    # 95 MB: just under Cloudflare's 100 MB limit for one request (free plan)
+    STK_MAX_UPLOAD_MB=95 \
+    STK_ALLOWED_ORIGINS=https://cheminations.com,https://www.cheminations.com \
+    # the secret key shared with the Worker: given as a file (docker run -v ...:/run/secrets/stk_api_key:ro),
+    # and required, so the container never starts without it
+    STK_API_KEY_FILE=/run/secrets/stk_api_key \
+    STK_REQUIRE_KEY=1
 USER stk
 WORKDIR /home/stk
 # Build matplotlib's font list now, so the first figure request is not slow.

@@ -1,0 +1,121 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>stk Worker tests</title>
+<pre id="out">running…</pre>
+<script type="module">
+// Load the Worker file unchanged, except that it talks to the local toolkit through this server.
+const source = await (await fetch('/worker.js')).text();
+const API = location.origin + '/stkapi';
+function loadWorker(origin) {
+  const code = source.replace("API_ORIGIN: 'https://stkapi.cheminations.com'", `API_ORIGIN: '${origin}'`);
+  if (code === source) throw new Error('API_ORIGIN line not found');
+  return import(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+}
+
+// Stand-in for Cloudflare's cache (caches.default): a Map of saved answers.
+const store = new Map();
+Object.defineProperty(globalThis, 'caches', { configurable: true, value: { default: {
+  async match(req) { const r = store.get(req.url); return r ? r.clone() : undefined; },
+  async put(req, res) { store.set(req.url, res); }
+} } });
+// Browsers cannot stream an upload over plain HTTP/1.1; Cloudflare can. Read the stream first (local only).
+const realFetch = globalThis.fetch.bind(globalThis);
+globalThis.fetch = async (url, init = {}) => {
+  if (init.body instanceof ReadableStream) init = { ...init, body: await new Response(init.body).arrayBuffer() };
+  return realFetch(url, init);
+};
+const pending = [];
+const ctx = { waitUntil(p) { pending.push(p); } };
+
+// A visitor's request as Cloudflare hands it to the Worker (a standalone Headers object may hold Sec-* headers).
+async function visit(worker, path, { method = 'GET', site = 'same-origin', referer = 'https://cheminations.com/tools/spectrum-toolkit',
+                              body, json, length, ip = '1.2.3.4', key = 'test-key', type } = {}) {
+  const headers = new Headers({ 'CF-Connecting-IP': ip });
+  if (site) headers.set('Sec-Fetch-Site', site);
+  if (referer) headers.set('Referer', referer);
+  let stream = null;
+  if (json !== undefined) body = new Blob([JSON.stringify(json)], { type: 'application/json' });
+  if (body) {
+    const packed = new Response(body);                         // FormData or Blob -> bytes with the right type
+    const bytes = await packed.arrayBuffer();
+    headers.set('Content-Type', type || packed.headers.get('Content-Type'));
+    if (length !== null) headers.set('Content-Length', String(length ?? bytes.byteLength));
+    stream = new Response(bytes).body;
+  }
+  const request = { method, url: 'https://cheminations.com' + path, headers, body: stream };
+  const r = await worker.default.fetch(request, { STK_API_KEY: key }, ctx);
+  await Promise.all(pending.splice(0));
+  return r;
+}
+const fileForm = async (name, extra = {}) => {
+  const f = new FormData();
+  f.append('file', new Blob([await (await realFetch('/data/' + encodeURIComponent(name))).arrayBuffer()]), name);
+  for (const [k, v] of Object.entries(extra)) f.append(k, v);
+  return f;
+};
+
+// The tests
+const results = [];
+const check = (name, ok, detail = '') => results.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
+const w = await loadWorker(API);
+let r;
+
+r = await visit(w, '/api/stk/health'); check('health from our page', r.status === 200 && (await r.json()).status === 'ok');
+r = await visit(w, '/api/stk/options'); const optText = await r.text();
+check('options MISS, then saved', r.status === 200 && r.headers.get('X-Cache') === 'MISS', `${(optText.length / 1024).toFixed(0)} KB`);
+r = await visit(w, '/api/stk/options'); check('options HIT the second time', r.headers.get('X-Cache') === 'HIT' && (await r.text()) === optText);
+r = await visit(w, '/api/stk/example'); const example = await r.json(); check('example', r.status === 200 && example.data.names.length === 3);
+
+r = await visit(w, '/api/stk/health', { site: 'cross-site', referer: 'https://evil.example/' }); check('another website: 403', r.status === 403);
+r = await visit(w, '/api/stk/health', { site: 'none', referer: null }); check('typed in the address bar: 403', r.status === 403);
+r = await visit(w, '/api/stk/health', { site: 'same-site', referer: 'https://www.cheminations.com/tools/x' }); check('www. page: allowed', r.status === 200);
+r = await visit(w, '/api/stk/health', { site: 'same-site', referer: 'https://work.cheminations.com/' }); check('other subdomain (n8n): 403', r.status === 403);
+r = await visit(w, '/api/stk/health', { site: null, referer: 'https://cheminations.com/x' }); check('old browser, our Referer: allowed', r.status === 200);
+r = await visit(w, '/api/stk/health', { site: null, referer: 'https://cheminations.com.evil.example/' }); check('look-alike Referer: 403', r.status === 403);
+
+r = await visit(w, '/api/stk/docs'); check('/docs is not reachable: 404', r.status === 404);
+r = await visit(w, '/api/stk/load/x'); check('extra path parts: 404', r.status === 404);
+r = await visit(w, '/api/stk/%2e%2e/spectra/showcase'); check('dot-dot out of /api/stk: 404', r.status === 404);
+r = await visit(w, '/api/stk/load'); check('GET on load: 405', r.status === 405 && r.headers.get('Allow') === 'POST');
+r = await visit(w, '/api/stk/options', { method: 'POST', json: {} }); check('POST on options: 405', r.status === 405);
+r = await visit(w, '/api/stk/figure', { method: 'POST', body: await fileForm('A_A_1.asc') }); check('a form to figure: 415', r.status === 415);
+r = await visit(w, '/api/stk/load', { method: 'POST', json: {} }); check('JSON to load: 415', r.status === 415);
+r = await visit(w, '/api/stk/figure', { method: 'POST', json: example, length: null }); check('no size given: 411', r.status === 411);
+r = await visit(w, '/api/stk/load', { method: 'POST', body: await fileForm('A_A_1.asc'), length: 96 * 1024 * 1024 });
+check('96 MB: 413 before reaching the VM', r.status === 413 && (await r.json()).detail.includes('95 MB'));
+
+r = await visit(w, '/api/stk/load', { method: 'POST', body: await fileForm('A_A_1.asc', { summary_only: 'true' }) });
+let j = await r.json(); check('upload A_A_1.asc', r.status === 200 && j.data.n_points === 1024 && r.headers.get('Cache-Control') === 'no-store');
+r = await visit(w, '/api/stk/load', { method: 'POST', body: await fileForm('pga-stem_map.wdf') });
+j = await r.json(); check('upload a .wdf map (6.9 MB answer, streamed)', r.status === 200 && j.data.positions.length === 378);
+r = await visit(w, '/api/stk/load', { method: 'POST', body: await fileForm('wt_raw.mat', { summary_only: 'true', y: 'Wt' }) });
+j = await r.json(); check("toolkit's own message passes (422)", r.status === 422 && j.detail.includes("'wt'"), j.detail.slice(0, 70));
+r = await visit(w, '/api/stk/figure', { method: 'POST', json: { ...example, dpi: 60, format: 'png', name: 'preview' } });
+const png = new Uint8Array(await r.arrayBuffer());
+check('figure: a PNG picture, with its file name', r.status === 200 && r.headers.get('Content-Type') === 'image/png'
+  && png[1] === 0x50 && png[2] === 0x4e && r.headers.get('Content-Disposition').includes('preview.png'), `${(png.length / 1024).toFixed(0)} KB`);
+r = await visit(w, '/api/stk/figure', { method: 'POST', json: { ...example, dpi: 60, settings: { font: 'No Such Font' } } });
+check('font warning header passes', r.status === 200 && (r.headers.get('X-Warning') || '').includes('No Such Font'));
+r = await visit(w, '/api/stk/process-file', { method: 'POST',
+  body: await fileForm('CV10-4M.xlsx', { recipe: '{"steps":[{"step":"baseline"}]}', summary_only: 'true' }) });
+j = await r.json(); check('process-file with a recipe', r.status === 200 && j.data.history.at(-1).step === 'baseline');
+
+r = await visit(w, '/api/stk/figure', { method: 'POST', json: example, key: 'wrong-key' });
+check('wrong key on the Worker: 503 (our setup), never the 401', r.status === 503);
+const down = await loadWorker('http://127.0.0.1:9');        // nothing listens there: "VM down"
+r = await visit(down, '/api/stk/options'); check('VM down: a fresh saved copy is served (HIT)', r.headers.get('X-Cache') === 'HIT');
+for (const [k, v] of store) {                                // age the saved copies by 2 hours
+  const h = new Headers(v.headers); h.set('X-Saved-At', String(Date.now() - 2 * 3600 * 1000));
+  store.set(k, new Response(await v.clone().arrayBuffer(), { headers: h }));
+}
+r = await visit(down, '/api/stk/options'); check('VM down: options from the saved copy (STALE)', r.status === 200 && r.headers.get('X-Cache') === 'STALE');
+r = await visit(down, '/api/stk/figure', { method: 'POST', json: example }); check('VM down: figure 503 with a message', r.status === 503);
+
+let last;
+for (let i = 0; i < 125; i++) last = await visit(w, '/api/stk/health', { ip: '9.9.9.9' });
+check('rate limit: request 125 in a minute gets 429', last.status === 429);
+r = await visit(w, '/api/stk/health', { ip: '8.8.8.8' }); check('another visitor is not affected', r.status === 200);
+
+const failed = results.filter(x => x.startsWith('FAIL')).length;
+document.getElementById('out').textContent = `${results.length - failed} passed, ${failed} failed\n\n` + results.join('\n');
+</script>

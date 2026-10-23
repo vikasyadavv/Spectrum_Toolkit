@@ -61,12 +61,17 @@ The same service in Docker (needs Docker Desktop on the Mac, or Docker on the VM
 
 ```bash
 docker build -t spectrum-toolkit .
-docker run -d --name stk -p 127.0.0.1:8000:8000 --restart unless-stopped spectrum-toolkit
-curl http://127.0.0.1:8000/health                   # {"status":"ok","version":"0.0.1"}
-curl -F "file=@data/A_A_1.asc" http://127.0.0.1:8000/load
+openssl rand -hex 32 > key.txt                      # the secret key (on the VM: see docs/website.md)
+docker run -d --name stk -p 127.0.0.1:8000:8000 -v "$PWD/key.txt:/run/secrets/stk_api_key:ro" \
+    --restart unless-stopped spectrum-toolkit
+curl http://127.0.0.1:8000/health                   # {"status":"ok","version":"0.0.1"} (no key needed)
+curl -H "X-STK-Key: $(cat key.txt)" -F "file=@data/A_A_1.asc" http://127.0.0.1:8000/load
 ```
 
-Settings: `-e STK_MAX_UPLOAD_MB=200`, `-e STK_ALLOWED_ORIGINS=https://cheminations.com,...`.
+Settings: `-e STK_MAX_UPLOAD_MB=95`, `-e STK_ALLOWED_ORIGINS=https://cheminations.com,...`. The image
+needs a secret key file (`-v key.txt:/run/secrets/stk_api_key:ro`) and refuses to start without one;
+only the website's Cloudflare Worker (`worker/stk-worker.js`) knows the key. How the website reaches
+the service, and how to set it up: `docs/website.md`.
 
 ## Layout
 
@@ -78,6 +83,8 @@ notebooks/              hands-on trials of each feature with real data
 benchmarks/             scripts comparing the methods (fixed seeds)
 scripts/                check_all_data.py: run everything on every file in data/
 data/                   our real data files (local only, not in git)
+worker/                 the Cloudflare Worker between the website and the service, and its tests
+docs/website.md         how the website reaches the service, and how to set it up
 docs/roadmap.md         features: proposed, agreed, done; decisions
 docs/benchmarks.md      how the methods compare, and why the defaults (generated)
 docs/dependencies.md    every dependency, its version, how to upgrade

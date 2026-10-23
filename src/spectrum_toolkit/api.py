@@ -76,13 +76,25 @@ Run locally::
 
 Settings (environment variables)
 --------------------------------
-STK_MAX_UPLOAD_MB      largest accepted upload, default 200.
+STK_MAX_UPLOAD_MB      largest accepted upload, default 200 (the Docker image: 95,
+                       under Cloudflare's 100 MB limit).
 STK_ALLOWED_ORIGINS    websites allowed to call the service from a browser,
                        comma separated; default the cheminations.com addresses.
+STK_API_KEY_FILE       a file holding the secret key (or STK_API_KEY, the key
+                       itself). When set, every request except /health must
+                       carry it in the "X-STK-Key" header: only the
+                       cheminations.com Worker (worker/stk-worker.js) knows it.
+                       Not set: no key is asked (for running on your own computer).
+STK_REQUIRE_KEY        "1": refuse to start without a key (set in the Docker
+                       image, so the service on the VM can never run open).
+
+On the /docs page, "Authorize" (top right) takes the key, so "Try it out"
+works on the VM too.
 """
 
 from __future__ import annotations
 
+import hmac
 import json
 import math
 import os
@@ -95,9 +107,10 @@ from typing import Any, Literal
 import numpy as np
 
 try:
-    from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
+    from fastapi import APIRouter, Body, Depends, FastAPI, File, Form, HTTPException, Request, Security, UploadFile
     from fastapi.middleware.cors import CORSMiddleware
     from fastapi.responses import JSONResponse, Response
+    from fastapi.security import APIKeyHeader
 except ImportError as e:                                         # only the web service needs FastAPI
     raise ImportError('The web service needs: pip install "spectrum-toolkit[api]"') from e
 
@@ -110,6 +123,18 @@ MAX_UPLOAD = int(os.environ.get("STK_MAX_UPLOAD_MB", "200")) * 1024 * 1024
 ORIGINS = [o.strip() for o in os.environ.get(
     "STK_ALLOWED_ORIGINS", "https://cheminations.com,https://www.cheminations.com").split(",") if o.strip()]
 
+
+
+def _secret(name: str) -> str:
+    """A secret from the file named in NAME_FILE (as Docker secrets are given), or from NAME itself; "" if neither."""
+    path = os.environ.get(name + "_FILE")
+    return Path(path).read_text().strip() if path else os.environ.get(name, "").strip()
+
+
+API_KEY = _secret("STK_API_KEY")
+if os.environ.get("STK_REQUIRE_KEY") == "1" and not API_KEY:     # the Docker image: never run without a key
+    raise SystemExit("STK_REQUIRE_KEY is 1 but no key was given: set STK_API_KEY_FILE (or STK_API_KEY).")
+
 # matplotlib keeps global state (current figure, style settings), so only one
 # request at a time may draw; processing requests run side by side.
 _FIGURE_LOCK = threading.Lock()
@@ -120,6 +145,21 @@ app = FastAPI(title="Spectrum Toolkit", version=__version__,
 # expose_headers: lets the website's JavaScript read the file name and the font warning
 app.add_middleware(CORSMiddleware, allow_origins=ORIGINS, allow_methods=["GET", "POST"], allow_headers=["*"],
                    expose_headers=["Content-Disposition", "X-Warning"])
+
+# The key travels in this header; declaring it here also gives /docs its "Authorize" button.
+_KEY_HEADER = APIKeyHeader(name="X-STK-Key", auto_error=False,
+                           description="The secret key shared with the cheminations.com Worker.")
+
+
+def _only_the_worker(key: str | None = Security(_KEY_HEADER)) -> None:
+    """Refuse requests without the right key (when a key is set). compare_digest takes the same
+    time for every wrong key, so the key cannot be guessed letter by letter from the answer times."""
+    if API_KEY and not hmac.compare_digest(key or "", API_KEY):
+        raise HTTPException(401, "Not allowed: this service answers only the cheminations.com website.")
+
+
+# Every endpoint except /health is on this router, so every one of them checks the key.
+api = APIRouter(dependencies=[Depends(_only_the_worker)])
 
 
 @app.exception_handler(ValueError)
@@ -303,11 +343,11 @@ EXAMPLE_FIGURE = {"data": _TINY, "kind": "lines", "style": "publication", "setti
 # ------------------------------------------------------------------ endpoints
 @app.get("/health")
 def health() -> dict:
-    """For the server's health check."""
+    """For the server's health check (no key needed: it tells nothing but the version)."""
     return {"status": "ok", "version": __version__}
 
 
-@app.get("/options")
+@api.get("/options")
 def options() -> dict:
     """Every method with its default settings, and every style setting."""
     import importlib
@@ -337,7 +377,7 @@ def options() -> dict:
     }
 
 
-@app.post("/load")
+@api.post("/load")
 async def load_file(file: UploadFile = File(...),
                     sheet: str | None = Form(None, examples=[""], description=(
                         "Excel files only; ignored for other files. Empty: the sheet with the most "
@@ -366,7 +406,7 @@ async def load_file(file: UploadFile = File(...),
     return _load_answer(result, numbers=not summary_only)
 
 
-@app.post("/process")
+@api.post("/process")
 def process(body: dict = Body(..., examples=[EXAMPLE_PROCESS])) -> dict:
     """Apply a recipe to data sent as JSON."""
     data = _single_or_all(from_json(body.get("data")))
@@ -378,7 +418,7 @@ def process(body: dict = Body(..., examples=[EXAMPLE_PROCESS])) -> dict:
     return {"kind": "lines", "data": to_json(recipe.apply(data))}
 
 
-@app.post("/process-file")
+@api.post("/process-file")
 async def process_file(file: UploadFile = File(...), recipe: str = Form(..., examples=[EXAMPLE_RECIPE],
                        description="The processing steps as JSON text, e.g. " + EXAMPLE_RECIPE),
                        # False when left out, as in /load
@@ -470,7 +510,7 @@ def _panel_items(body: dict) -> list:
     return entries
 
 
-@app.post("/figure")
+@api.post("/figure")
 def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     """Draw data (or several panels) and return the figure file.
 
@@ -526,7 +566,7 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     return Response(content, media_type=_TYPES[fmt], headers=headers)
 
 
-@app.post("/groups")
+@api.post("/groups")
 def set_or_suggest_groups(body: dict = Body(..., examples=[{"data": _TINY, "groups": {"A": [0], "B": [1]}}])) -> dict:
     """Propose or set which group (sample) each spectrum belongs to.
 
@@ -550,7 +590,7 @@ def set_or_suggest_groups(body: dict = Body(..., examples=[{"data": _TINY, "grou
             "message": "Groups: " + ", ".join(f"{g} ({n})" for g, n in counts.items()) + "."}
 
 
-@app.post("/style-check")
+@api.post("/style-check")
 def style_check(body: dict = Body(..., examples=[EXAMPLE_STYLE])) -> dict:
     """Check a style and return it in full, before it is used or saved.
 
@@ -603,7 +643,7 @@ def style_check(body: dict = Body(..., examples=[EXAMPLE_STYLE])) -> dict:
             "renamed": renamed, "skipped": skipped, "warnings": warnings + ([font] if font else [])}
 
 
-@app.get("/example")
+@api.get("/example")
 def example_spectra() -> dict:
     """Three made-up example spectra (the ones in the documentation pictures).
 
@@ -612,3 +652,7 @@ def example_spectra() -> dict:
     """
     from .example import example
     return {"kind": "lines", "data": to_json(example())}
+
+
+# Added last, after every endpoint above is on the router.
+app.include_router(api)

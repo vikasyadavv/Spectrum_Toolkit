@@ -4,6 +4,9 @@ We test one item at a time on the VM through http://127.0.0.1:8100/docs
 (ssh tunnel open). Tick an item when the result looks right; write what was
 wrong next to it otherwise.
 
+On the VM the service asks for its secret key: click "Authorize" (top right of /docs) and
+paste the output of `sudo cat ~/stk-secrets/api_key.txt` once (see `docs/website.md`).
+
 How to use the page, for every test:
 - **Upload tests** (A, B): open the endpoint, "Try it out", choose the file,
   fill the boxes as written, "Execute", read "Server response".
