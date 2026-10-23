@@ -320,7 +320,10 @@ def test_example_spectra_for_the_preview():
     full = client.post("/figure", json={**r, "style": "publication", "dpi": 120, "format": "png"})
     from PIL import Image
     small, big = (Image.open(io.BytesIO(x.content)).size for x in (preview, full))
-    assert abs(big[0] - 2 * small[0]) <= 2 and abs(big[1] - 2 * small[1]) <= 2  # same figure, half the pixels
+    # Same figure, half the pixels. "tight" trims the white edge at each dpi on its own, so the
+    # sizes can differ by a few pixels (336 vs 676 / 2 = 338 wide): allow 1 % (at least 2 pixels).
+    for s, b in zip(small, big):                                 # width, then height
+        assert abs(b - 2 * s) <= max(2, 0.01 * b)
 
 
 def test_groups_proposed_set_and_kept():
