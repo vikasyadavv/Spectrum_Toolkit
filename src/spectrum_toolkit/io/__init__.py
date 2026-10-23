@@ -19,7 +19,7 @@ from ..core import Spectrum, SpectrumCollection
 from ._table import Table, build
 from .cfb import CompoundFile, is_cfb
 from .excel import read_excel
-from .matlab import is_mat, read_mat
+from .matlab import is_mat, mat_variables, read_mat
 from .shimadzu import is_shimadzu, read_spc_shimadzu
 from .text import looks_like_text, read_text
 from .wdf import is_wdf, read_wdf
@@ -142,4 +142,4 @@ def summary(result: Loaded, file_name: str) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["load", "summary"]
+__all__ = ["load", "summary", "mat_variables"]

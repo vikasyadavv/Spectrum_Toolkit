@@ -29,7 +29,8 @@ and `size_x`, then names, notes and history, and the numbers last. Set
 - [ ] A3 `MB 10-4M.xlsx` → 5 spectra; `RhB10-4M.xlsx` → 11 spectra
 - [ ] A4 `CV+RhB+MB.xlsx` → 35 spectra, 618 points
 - [ ] A5 `CV+RhB+MB_data cliped from 1600 to 1700.xlsx` → 35 spectra, 40 points
-- [ ] A6 `wt_raw.mat` with summary_only = true → size_Y [550, 747]; "notes" says which variables were used
+- [ ] A6 `wt_raw.mat` with summary_only = true → size_Y [550, 747]; "notes" says which variables were used; "variables" lists W [747], data_wt [410850, 4] and wt [747, 550], with "chosen" {"x": "W", "y": "wt"}
+- [ ] A6b `wt_raw.mat` with summary_only = true, x = `W`, y = `wt` → the same; with y = `Wt` → 422 naming the variables that exist; a text file with y = `wt` → 422 "x= and y= name variables in a .mat file"
 - [ ] A7 `baseline.m` → code 422, "No numeric data found"
 - [ ] A8 the SINGLECELL map file → code 422, "looks like a map" (takes a few seconds)
 - [ ] A9 an empty text file → 422 "The uploaded file is empty"

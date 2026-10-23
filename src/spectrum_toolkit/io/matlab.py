@@ -139,6 +139,33 @@ def _candidates(variables: dict[str, np.ndarray], vectors_too: bool = False) -> 
     return found
 
 
+def describe(variables: dict[str, np.ndarray], skipped: list[str]) -> dict:
+    """What a .mat file holds, as a table for choosing what to plot (see ``mat_variables``).
+
+    Returns {"variables": [...], "choices": [...], "chosen": None, "skipped": [...]}:
+    one row per variable (name, size as in MATLAB's size(), vector or
+    matrix, smallest and largest value, whether it can be an x axis), and
+    every x / y pair that fits (how many spectra, how many points, whether
+    the spectra are the matrix's columns or rows). "chosen" is filled in by
+    read_mat with the pair it used.
+    """
+    table = []
+    for name, v in sorted(variables.items()):
+        finite = v[np.isfinite(v)]                               # MATLAB NaN left out of min and max
+        table.append({"name": name, "size": [int(n) for n in v.shape],
+                      "kind": "vector" if v.ndim == 1 else "matrix",
+                      "min": float(finite.min()) if finite.size else None,
+                      "max": float(finite.max()) if finite.size else None,
+                      "can_be_x": bool(v.ndim == 1 and _is_monotonic(v))})   # only rising or falling vectors
+    choices = []
+    for xn, yn, how in _candidates(variables, vectors_too=True):
+        m = variables[yn]
+        spectra = 1 if how == "vector" else m.shape[1] if how == "columns" else m.shape[0]
+        choices.append({"x": xn, "y": yn, "spectra": int(spectra), "points": int(len(variables[xn])),
+                        "spectra_in": how})                     # "columns", "rows" or "vector"
+    return {"variables": table, "choices": choices, "chosen": None, "skipped": list(skipped)}
+
+
 def _spectra(x: np.ndarray, Y: np.ndarray, x_name: str, y_name: str, file_name: str,
              notes: list[str], meta: dict) -> Spectrum | SpectrumCollection:
     """Make the result from x and Y (rows = spectra), cleaning it like the text reader does."""
@@ -212,7 +239,9 @@ def read_mat(path: str | Path, x: str | None = None, y: str | None = None):
     notes = ["Variables: " + ", ".join(f"{n} ({_shape_text(v)})" for n, v in sorted(variables.items())) + "."]
     if skipped:
         notes.append("Skipped: " + ", ".join(skipped) + ".")
-    meta = {"variables": {n: v.shape for n, v in variables.items()}}
+    # The table of variables travels with the result, so a page can offer other choices.
+    info = describe(variables, skipped)
+    meta = {"variables": info}
 
     def get(name: str) -> np.ndarray:
         """A variable by name, with a helpful error listing the names that exist."""
@@ -228,22 +257,27 @@ def read_mat(path: str | Path, x: str | None = None, y: str | None = None):
                 raise ValueError(f"No matrix in {path.name} has a side as long as {x} ({len(get(x))}).")
             y = fits[0][1]
         Ym = get(y)
-        if x is None:                                # y given: find an x that fits it, if any
-            fits = [c for c in _candidates(variables) if c[1] == y]
+        found_x = x is None                          # x not given: look for one that fits y
+        if x is None:                                # y given: find an x that fits it (matrix or vector), if any
+            fits = [c for c in _candidates(variables, vectors_too=True) if c[1] == y]
             if fits:
                 x = fits[0][0]
             elif Ym.ndim == 1:
                 x_vals = np.arange(len(Ym), dtype=float)
                 notes.append(f"Variables chosen by hand: y = {y}; no x given, so x is the point number.")
+                info["chosen"] = {"x": None, "y": y}
                 return _spectra(x_vals, Ym[None, :], "Point number", y, path.stem, notes, meta)
             else:
                 notes.append(f"Variable chosen by hand: y = {y}.")
+                info["chosen"] = {"x": None, "y": y}
                 return _matrix_as_table(Ym, y, path.stem, notes, meta)
         x_vals = get(x)
         if x_vals.ndim != 1:
             raise ValueError(f"x must be a vector, but {x} is {_shape_text(x_vals)}.")
         Y = _orient(x_vals, Ym, y, notes)
-        notes.append(f"Variables chosen by hand: x = {x}, y = {y}.")
+        notes.append(f"Variable chosen by hand: y = {y}; x = {x}, the vector that fits it." if found_x
+                     else f"Variables chosen by hand: x = {x}, y = {y}.")
+        info["chosen"] = {"x": x, "y": y}
         return _spectra(x_vals, Y, x, y, path.stem, notes, meta)
 
     # ----- guess: a vector that fits a matrix --------------------------
@@ -252,6 +286,7 @@ def read_mat(path: str | Path, x: str | None = None, y: str | None = None):
         xn, yn, how = found[0]
         Y = _orient(variables[xn], variables[yn], yn, notes)
         notes.append(f"Used {xn} as x and {yn} as y ({Y.shape[0]} spectra, one per {how[:-1]}).")
+        info["chosen"] = {"x": xn, "y": yn}
         others = [f"x={a!r}, y={b!r}" for a, b, _ in _candidates(variables, vectors_too=True)[1:]]
         if others:
             notes.append("Other possible choices: " + "; ".join(others) + ".")
@@ -262,6 +297,7 @@ def read_mat(path: str | Path, x: str | None = None, y: str | None = None):
     if matrices:
         yn = max(matrices, key=lambda n: matrices[n].size)       # the biggest one
         notes.append(f"No x vector fits any matrix; read {yn} like a table.")
+        info["chosen"] = {"x": None, "y": yn}
         return _matrix_as_table(matrices[yn], yn, path.stem, notes, meta)
 
     # ----- guess: vectors only -----------------------------------------
@@ -270,6 +306,7 @@ def read_mat(path: str | Path, x: str | None = None, y: str | None = None):
         ys = [n for n, v in variables.items() if n != xn and len(v) == len(variables[xn])]
         if ys:
             notes.append(f"Used {xn} as x and {', '.join(ys)} as y.")
+            info["chosen"] = {"x": xn, "y": ys[0] if len(ys) == 1 else ys}   # several vectors: a list
             Y = np.vstack([variables[n] for n in ys])
             result = _spectra(variables[xn], Y, xn, ys[0] if len(ys) == 1 else "", path.stem, notes, meta)
             if isinstance(result, SpectrumCollection):
@@ -277,8 +314,54 @@ def read_mat(path: str | Path, x: str | None = None, y: str | None = None):
             return result
     yn = max(variables, key=lambda n: variables[n].size)          # one lone vector
     notes.append(f"No x axis found; {yn} used as y against point number.")
+    info["chosen"] = {"x": None, "y": yn}
     return _spectra(np.arange(variables[yn].size, dtype=float), variables[yn][None, :],
                     "Point number", yn, path.stem, notes, meta)
 
 
-__all__ = ["read_mat", "read_variables", "is_mat"]
+def mat_variables(path: str | Path) -> dict:
+    """Every variable in a .mat file with its size, and which ones can be plotted against which.
+
+    For choosing what to load: ``stk.load(path, x=..., y=...)`` with names
+    from this table.
+
+    Returns
+    -------
+    dict with
+      "variables"  one row per numeric vector or matrix: "name" (fields of a
+                   structure as "s.field"), "size" (as MATLAB's size(); a
+                   vector has one number), "kind" ("vector" or "matrix"),
+                   "min" and "max" (missing values left out), "can_be_x"
+                   (a vector that only rises or only falls).
+      "choices"    every x / y pair that fits: "x", "y", "spectra" (how many),
+                   "points" (in each), "spectra_in" ("columns", "rows", or
+                   "vector" for one spectrum); biggest first.
+      "chosen"     the pair ``load`` uses when no names are given, e.g.
+                   {"x": "W", "y": "wt"}; "x" None means point number (or,
+                   for a matrix read like a table, its first column); "y" is
+                   a list when several vectors become spectra. None when
+                   ``load`` cannot guess (then "problem" says why).
+      "skipped"    variables that cannot be spectra, and why (text, cell
+                   arrays, complex numbers, 3-D arrays).
+
+    >>> import spectrum_toolkit as stk                  # doctest: +SKIP
+    >>> info = stk.mat_variables("data/wt_raw.mat")     # doctest: +SKIP
+    >>> [(v["name"], v["size"]) for v in info["variables"]]   # doctest: +SKIP
+    [('W', [747]), ('data_wt', [410850, 4]), ('wt', [747, 550])]
+    >>> info["chosen"]                                  # doctest: +SKIP
+    {'x': 'W', 'y': 'wt'}
+    """
+    path = Path(path)
+    variables, skipped = read_variables(path)
+    if not variables:
+        raise ValueError(f"{path.name} has no numeric vectors or matrices." +
+                         (f" Skipped: {', '.join(skipped)}." if skipped else ""))
+    try:                                                        # what load would choose by itself
+        result = read_mat(path)
+        first = result[0] if isinstance(result, list) else result
+        return first.meta["variables"]
+    except ValueError as e:                                      # it cannot guess: still list everything
+        return {**describe(variables, skipped), "problem": str(e)}
+
+
+__all__ = ["read_mat", "read_variables", "mat_variables", "describe", "is_mat"]

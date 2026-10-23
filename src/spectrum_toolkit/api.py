@@ -49,8 +49,11 @@ per spectrum; sizes first, like MATLAB's size())::
      "notes": [...what was assumed while reading...], "history": [...every step...],
      "x": [...], "Y": [[...], ...]}
 
-/load answers {"data": ..., "separate": null, "message": null}; "separate"
-and "message" are used only when the spectra have different x axes.
+/load answers {"data": ..., "separate": null, "message": null, "variables": null};
+"separate" and "message" are used only when the spectra have different x
+axes. For a .mat file, "variables" lists every variable with its size, the
+x / y pairs that fit and the pair used (see stk.mat_variables); send "x" and
+"y" (variable names) with the upload to choose another pair.
 Requests need only "x" and "Y" (plus optional "names", units, "history",
 "groups", "positions" and "position_labels"). "positions" has one row per
 spectrum (the stage position of each spectrum of a map; null otherwise).
@@ -245,10 +248,13 @@ async def _save_upload(file: UploadFile, folder: Path) -> Path:
 
 
 def _load_answer(result, numbers: bool = True) -> dict:
-    """Answer of /load, always with the same three fields:
+    """Answer of /load, always with the same four fields:
     "data" (one data set, or null), "separate" (a list of data sets when their
-    x axes differ and cannot be joined, or null) and "message" (null, or why
-    the spectra came back separately)."""
+    x axes differ and cannot be joined, or null), "message" (null, or why
+    the spectra came back separately) and "variables" (.mat files: the table
+    of variables to choose from, see stk.mat_variables; null otherwise)."""
+    first = result[0] if isinstance(result, list) else result
+    variables = _plain(first.meta.get("variables")) if isinstance(first.meta, dict) else None
     if isinstance(result, list):
         from .edit import check_axes, combine
         notes = [n for n in result[0].meta.get("load_notes") or []        # what the reader assumed,
@@ -265,13 +271,20 @@ def _load_answer(result, numbers: bool = True) -> dict:
             joined = joined.copy_with(meta={**joined.meta, "load_notes": notes + [
                 f"The {len(result)} spectra lie on one x grid and were joined into one set without "
                 f"changing any value: {how}."]})
-            return {"data": to_json(joined, numbers), "separate": None, "message": None}
+            return {"data": to_json(joined, numbers), "separate": None, "message": None, "variables": variables}
         except ValueError as e:
             report = check_axes(result)
             return {"data": None, "separate": [to_json(s, numbers) for s in result],
                     "message": f"The spectra have different x axes ({report.case}); "
-                               f"choose how to put them on one axis. {e}"}
-    return {"data": to_json(result, numbers), "separate": None, "message": None}
+                               f"choose how to put them on one axis. {e}", "variables": variables}
+    return {"data": to_json(result, numbers), "separate": None, "message": None, "variables": variables}
+
+
+# Form boxes of /load and /process-file for choosing variables in a .mat file.
+_X_HELP = (".mat files only: the name of the variable to use as x axis (from \"variables\" in a /load "
+           "answer, e.g. W). Empty: guessed, or the point number when only y is given.")
+_Y_HELP = (".mat files only: the name of the variable holding the spectra (e.g. wt; a structure field "
+           "as s.field). Empty: guessed.")
 
 
 # ------------------------------------------------------------------ examples
@@ -338,15 +351,18 @@ async def load_file(file: UploadFile = File(...),
                     # False when left out: a form leaves out an unticked box, so a "yes" option must default to no
                     summary_only: bool = Form(False, description=(
                         "true: leave out the x and Y numbers (sizes, names and notes only), for a quick "
-                        "look at a big file; the /docs page slows down with many numbers."))) -> dict:
-    """Read an uploaded file: text, Excel, .mat, Renishaw .wdf or Shimadzu .spc (only text and Excel use sheet and layout)."""
+                        "look at a big file; the /docs page slows down with many numbers.")),
+                    x: str | None = Form(None, examples=[""], description=_X_HELP),
+                    y: str | None = Form(None, examples=[""], description=_Y_HELP)) -> dict:
+    """Read an uploaded file: text, Excel, .mat, Renishaw .wdf or Shimadzu .spc (only text and Excel use
+    sheet and layout; only .mat uses x and y)."""
     sheet = _blank_to_none(sheet)                                # an empty box means "not given"
     layout = None if layout == "auto" else layout                # None = let the reader detect it
     if sheet is not None and sheet.isdigit():                    # "2" from a form is sheet number 2
         sheet = int(sheet)
     with tempfile.TemporaryDirectory() as folder:               # deleted with everything in it afterwards
         path = await _save_upload(file, Path(folder))
-        result = load(path, sheet=sheet, layout=layout, verbose=False)
+        result = load(path, sheet=sheet, layout=layout, x=_blank_to_none(x), y=_blank_to_none(y), verbose=False)
     return _load_answer(result, numbers=not summary_only)
 
 
@@ -368,8 +384,10 @@ async def process_file(file: UploadFile = File(...), recipe: str = Form(..., exa
                        # False when left out, as in /load
                        summary_only: bool = Form(False, description=(
                            "true: leave out the x and Y numbers (sizes, names, notes and history only), "
-                           "for a big file; the /docs page slows down with many numbers."))) -> dict:
-    """Load an uploaded file and apply a recipe (JSON text) in one call."""
+                           "for a big file; the /docs page slows down with many numbers.")),
+                       x: str | None = Form(None, examples=[""], description=_X_HELP),
+                       y: str | None = Form(None, examples=[""], description=_Y_HELP)) -> dict:
+    """Load an uploaded file and apply a recipe (JSON text) in one call (x and y as in /load)."""
     try:
         steps = json.loads(recipe)
     except json.JSONDecodeError as e:
@@ -377,7 +395,8 @@ async def process_file(file: UploadFile = File(...), recipe: str = Form(..., exa
     r = Recipe(steps.get("steps", []) if isinstance(steps, dict) else steps)
     with tempfile.TemporaryDirectory() as folder:
         path = await _save_upload(file, Path(folder))
-        result = r.apply(path)
+        chosen = {k: v for k, v in (("x", _blank_to_none(x)), ("y", _blank_to_none(y))) if v is not None}
+        result = r.apply(path, load_options=chosen)
     # "kind" first: the whole answer can be pasted into /figure as it is (change "lines" to stack, mean or image)
     return {"kind": "lines", "data": to_json(result, numbers=not summary_only)}
 

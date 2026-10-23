@@ -33,6 +33,7 @@ In VS Code, pick `.venv/bin/python` as the interpreter / notebook kernel.
 import spectrum_toolkit as stk
 s = stk.load("data/A_A_1.asc")       # text, Excel, .mat, Renishaw .wdf, Shimadzu .spc; prints what it read
 s = s.trim(200, 1800)                # keep 200-1800 cm-1
+stk.mat_variables("data/wt_raw.mat") # what a .mat file holds: every variable, its size, what fits
 c = stk.combine("a.txt", "b.xlsx")   # several files -> one collection on one x axis
 c = c.despike().baseline().smooth().normalize()   # defaults: single, airpls, savgol, snv
 d = c.derivative(n=2)                # 2nd derivative (Savitzky-Golay)

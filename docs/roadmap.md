@@ -80,7 +80,8 @@ Each feature moves through: proposed → agreed → built → approved.
 - The guess goes by shape: a rising (or falling) vector is x; a matrix with a side of that length holds the spectra (per column if rows match, per row if columns match). Biggest matrix wins; other possible pairs are listed in the notes.
 - No fitting vector: the biggest matrix is read like a text table. Vectors only: rising vector is x, same-length vectors are y.
 - Structures are searched (`s.field`); text, cell arrays, complex and 3-D arrays are skipped with a note.
-- Override by name: `stk.load(f, x="W", y="wt")`.
+- Override by name: `stk.load(f, x="W", y="wt")`. Only y given: the x vector that fits it is used (for a matrix or, since 2026-10-23, a vector too), else the point number.
+- See what is inside (2026-10-23, asked by Vikas: see the variables and their sizes, to choose what to plot): `stk.mat_variables(f)` gives one row per variable (name, size as MATLAB's size(), vector or matrix, min and max, whether it can be an x axis), every x / y pair that fits (spectra, points, columns or rows), the pair `load` uses ("chosen") and what was skipped. The same table is in `meta["variables"]` after loading. On the service, `/load` answers it as `"variables"` (null for other files), and `/load` and `/process-file` take `x` and `y` (variable names) to choose.
 - Uses scipy (already a dependency). v7.3 files (HDF5) give a clear error asking to re-save with `-v7`; supporting them needs h5py, to be added when such a file turns up.
 - Map tables such as `data_wt` are not yet read as maps (postponed).
 

@@ -119,6 +119,72 @@ def test_variable_names_only_for_mat(tmp_path):
         stk.load(f, y="a", verbose=False)
 
 
+def test_mat_variables_lists_everything_with_sizes(tmp_path):
+    """mat_variables: every variable with its size, the pairs that fit, the pair load uses, and what was skipped."""
+    f = write(tmp_path, x=X, single=Y[0], big=Y.T, meas={"wn": X[::-1]}, label="sample A")
+    info = stk.mat_variables(f)
+    rows = {v["name"]: v for v in info["variables"]}
+    assert list(rows) == ["big", "meas.wn", "single", "x"]          # sorted by name; structure fields as s.field
+    assert rows["big"]["size"] == [200, 3] and rows["big"]["kind"] == "matrix"   # as MATLAB's size()
+    assert rows["x"]["size"] == [200] and rows["x"]["can_be_x"] and rows["meas.wn"]["can_be_x"]  # falling counts too
+    assert not rows["single"]["can_be_x"]                           # a spectrum goes up and down
+    assert rows["x"]["min"] == pytest.approx(400) and rows["x"]["max"] == pytest.approx(1800)
+    first = info["choices"][0]                                      # biggest first
+    assert (first["x"], first["y"], first["spectra"], first["points"], first["spectra_in"]) == \
+        (first["x"], "big", 3, 200, "columns")
+    assert {"x": "x", "y": "single", "spectra": 1, "points": 200, "spectra_in": "vector"} in info["choices"]
+    assert info["chosen"]["y"] == "big"                             # what load picks by itself
+    assert any("label" in s for s in info["skipped"])
+
+
+def test_chosen_follows_the_names_given(tmp_path):
+    """Names given by hand are recorded as the choice; only y given means point number for x."""
+    f = write(tmp_path, x=X, single=Y[0], big=Y.T)
+    s = stk.load(f, x="x", y="single", verbose=False)
+    assert s.meta["variables"]["chosen"] == {"x": "x", "y": "single"}
+    s = stk.load(f, y="single", verbose=False)                     # "single" fits x, so x is found
+    assert s.meta["variables"]["chosen"]["x"] == "x"
+    f = write(tmp_path, counts=Y[0])
+    s = stk.load(f, verbose=False)
+    assert s.meta["variables"]["chosen"] == {"x": None, "y": "counts"} and s.x_unit == "Point number"
+
+
+def test_mat_variables_still_lists_when_load_cannot_guess(tmp_path):
+    """No numbers at all: a clear error. A file load cannot read by itself: the table plus the problem."""
+    f = write(tmp_path, label="only text")
+    with pytest.raises(ValueError, match="no numeric vectors or matrices"):
+        stk.mat_variables(f)
+    f = write(tmp_path, a=np.array([1.0, 2.0, 3.0]), b=np.array([[np.nan, np.nan], [np.nan, np.nan]]))
+    info = stk.mat_variables(f)
+    assert [v["name"] for v in info["variables"]] == ["a", "b"]
+    assert info["variables"][1]["min"] is None                      # only missing values: no min or max
+    assert "chosen" in info
+
+
+def test_service_lists_variables_and_takes_x_and_y(tmp_path):
+    """/load of a .mat file answers the variables; x and y choose another pair; wrong names say which exist."""
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+    from spectrum_toolkit.api import app
+    client = TestClient(app)
+    raw = write(tmp_path, x=X, single=Y[0], big=Y.T).read_bytes()
+    r = client.post("/load", files={"file": ("a.mat", raw)}).json()
+    assert r["variables"]["chosen"] == {"x": "x", "y": "big"} and r["data"]["n_spectra"] == 3
+    assert [v["name"] for v in r["variables"]["variables"]] == ["big", "single", "x"]
+    r = client.post("/load", files={"file": ("a.mat", raw)}, data={"x": "x", "y": "single"}).json()
+    assert r["data"]["n_spectra"] == 1 and r["variables"]["chosen"] == {"x": "x", "y": "single"}
+    r = client.post("/load", files={"file": ("a.mat", raw)}, data={"x": "", "y": ""}).json()
+    assert r["variables"]["chosen"]["y"] == "big"                  # empty boxes: guessed as before
+    r = client.post("/load", files={"file": ("a.mat", raw)}, data={"y": "Big"})
+    assert r.status_code == 422 and "'big'" in r.json()["detail"]  # names the variables that exist
+    text = b"1 2\n2 3\n3 5\n"
+    r = client.post("/load", files={"file": ("a.txt", text)}, data={"y": "single"})
+    assert r.status_code == 422 and ".mat" in r.json()["detail"]   # x and y are for .mat files only
+    recipe = '{"steps": [{"step": "normalize", "method": "max"}]}'
+    r = client.post("/process-file", files={"file": ("a.mat", raw)}, data={"recipe": recipe, "y": "single"}).json()
+    assert r["data"]["n_spectra"] == 1 and max(r["data"]["Y"][0]) == pytest.approx(1)
+
+
 # ---------------------------------------------------------------- real data
 @pytest.mark.skipif(not (DATA / "wt_raw.mat").is_file(), reason="data/wt_raw.mat not present")
 def test_real_mat():
@@ -126,3 +192,7 @@ def test_real_mat():
     c = stk.load(DATA / "wt_raw.mat", verbose=False)
     assert c.Y.shape == (550, 747) and c.x_unit == "W" and c.y_unit == "wt"
     assert np.isclose(c.x[0], 441.679688) and np.isclose(c.Y[0, 0], 1016.658752)   # first value of wt
+    info = stk.mat_variables(DATA / "wt_raw.mat")                   # the table of what is inside
+    assert [(v["name"], v["size"]) for v in info["variables"]] == [("W", [747]), ("data_wt", [410850, 4]),
+                                                                    ("wt", [747, 550])]
+    assert info["chosen"] == {"x": "W", "y": "wt"}

@@ -227,18 +227,24 @@ class Recipe:
         return recipe
 
     # ------------------------------------------------------------ using
-    def apply(self, data: Data | str | Path, verbose: bool = False) -> Data:
-        """Apply every step in order; data may be a Spectrum, a collection or a file path."""
-        return self.run(data, verbose)[-1][1]
+    def apply(self, data: Data | str | Path, verbose: bool = False, load_options: dict | None = None) -> Data:
+        """Apply every step in order; data may be a Spectrum, a collection or a file path.
 
-    def run(self, data: Data | str | Path, verbose: bool = False) -> list[tuple[str, Data]]:
+        load_options : settings for loading a file path, e.g. ``{"x": "W", "y": "wt"}`` for a .mat file
+            (any keyword of ``stk.load``).
+        """
+        return self.run(data, verbose, load_options)[-1][1]
+
+    def run(self, data: Data | str | Path, verbose: bool = False,
+            load_options: dict | None = None) -> list[tuple[str, Data]]:
         """Apply every step and keep each result: [("start", data), ("trim", ...), ...].
 
         Useful for before/after plots of each step: ``stk.compare(r[1][1], r[2][1])``.
+        load_options : as in ``apply``.
         """
         if isinstance(data, (str, Path)):
             from .io import load
-            data = load(data, verbose=verbose)
+            data = load(data, verbose=verbose, **(load_options or {}))
             if isinstance(data, list):
                 # Spectra with their own x columns: join them when they share the x
                 # values (gaps allowed, nothing interpolated); otherwise ask the user.
