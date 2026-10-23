@@ -10,7 +10,8 @@ GET  /health        "ok" and the toolkit version (for the server's health check)
 GET  /options       every processing method with its default settings, every
                     style setting, preset, palette and size: what the website
                     needs to build its forms.
-POST /load          upload a file (form field "file"); returns the spectra.
+POST /load          upload a file (form field "file"): text, Excel, .mat,
+                    Renishaw .wdf or Shimadzu .spc; returns the spectra (maps with their positions).
 POST /process       JSON {"data": ..., "recipe": {"steps": [...]}}: applies
                     the steps; with "all_steps": true also returns the data
                     after every step (for before/after views).
@@ -43,13 +44,16 @@ per spectrum; sizes first, like MATLAB's size())::
 
     {"n_spectra": 14, "n_points": 1424, "size_Y": [14, 1424], "size_x": [1424],
      "x_range": [101.9, 1802.8], "names": ["Spectrum 1", ...], "groups": ["CV", ...] or [],
+     "positions": [[x, y], ...] or null, "position_labels": ["X (µm)", "Y (µm)"] or [],
      "x_unit": "", "y_unit": "",
      "notes": [...what was assumed while reading...], "history": [...every step...],
      "x": [...], "Y": [[...], ...]}
 
 /load answers {"data": ..., "separate": null, "message": null}; "separate"
 and "message" are used only when the spectra have different x axes.
-Requests need only "x" and "Y" (plus optional "names", units, "history").
+Requests need only "x" and "Y" (plus optional "names", units, "history",
+"groups", "positions" and "position_labels"). "positions" has one row per
+spectrum (the stage position of each spectrum of a map; null otherwise).
 
 Mistakes in a request (unknown method, wrong setting, unreadable file) give
 HTTP 422 with the same plain-English message the library gives.
@@ -163,9 +167,11 @@ def to_json(data: Spectrum | SpectrumCollection, numbers: bool = True) -> dict:
     """
     if isinstance(data, Spectrum):
         Y, names, groups = data.y[None, :], [data.name], [data.group] if data.group else []
+        positions = None                                         # one spectrum: no map
     else:
-        Y, names, groups = data.Y, list(data.names), list(data.groups)
-    notes = data.meta.get("load_notes") if isinstance(data.meta, dict) else None
+        Y, names, groups, positions = data.Y, list(data.names), list(data.groups), data.positions
+    meta = data.meta if isinstance(data.meta, dict) else {}
+    notes = meta.get("load_notes")
     return {
         "n_spectra": int(Y.shape[0]),                            # rows of Y
         "n_points": int(Y.shape[1]),                             # values in each row, and in x
@@ -174,6 +180,9 @@ def to_json(data: Spectrum | SpectrumCollection, numbers: bool = True) -> dict:
         "x_range": [float(np.min(data.x)), float(np.max(data.x))] if data.x.size else None,
         "names": names,
         "groups": groups,                                        # one per spectrum ("" = none); [] = no groups
+        # map positions: one row per spectrum (e.g. X, Y in µm), null when there are none
+        "positions": _numbers(positions) if positions is not None and numbers else None,
+        "position_labels": list(meta.get("position_labels") or []) if positions is not None else [],
         "x_unit": data.x_unit,
         "y_unit": data.y_unit,
         "notes": list(notes or []),                              # what was assumed while reading
@@ -192,9 +201,12 @@ def from_json(d: dict) -> SpectrumCollection:
         Y = Y[None, :]
     if not np.all(np.isfinite(Y)):
         raise ValueError("data contains missing values (null); remove those points first.")
+    positions = d.get("positions")                                # map positions travel with the data
     return SpectrumCollection(d["x"], Y, names=d.get("names") or (), x_unit=d.get("x_unit", ""),
                               y_unit=d.get("y_unit", ""), history=tuple(d.get("history") or ()),
-                              groups=tuple(d.get("groups") or ()))
+                              groups=tuple(d.get("groups") or ()),
+                              positions=None if positions is None else np.asarray(positions, dtype=float),
+                              meta={"position_labels": list(d.get("position_labels") or [])})
 
 
 def _single_or_all(c: SpectrumCollection) -> Spectrum | SpectrumCollection:
@@ -327,7 +339,7 @@ async def load_file(file: UploadFile = File(...),
                     summary_only: bool = Form(False, description=(
                         "true: leave out the x and Y numbers (sizes, names and notes only), for a quick "
                         "look at a big file; the /docs page slows down with many numbers."))) -> dict:
-    """Read an uploaded file: text, Excel or .mat (.mat files ignore sheet and layout)."""
+    """Read an uploaded file: text, Excel, .mat, Renishaw .wdf or Shimadzu .spc (only text and Excel use sheet and layout)."""
     sheet = _blank_to_none(sheet)                                # an empty box means "not given"
     layout = None if layout == "auto" else layout                # None = let the reader detect it
     if sheet is not None and sheet.isdigit():                    # "2" from a form is sheet number 2

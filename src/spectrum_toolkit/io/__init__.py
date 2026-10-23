@@ -1,6 +1,8 @@
 """Loading data files.
 
-Use ``load``; it picks the right reader from the file's content and extension.
+Use ``load``; it picks the right reader from the file's content and extension:
+text (.txt, .csv, .asc, .esp, ...), Excel (.xlsx, .xls), MATLAB (.mat),
+Renishaw WiRE (.wdf) and Shimadzu UVProbe (.spc).
 
 >>> import spectrum_toolkit as stk                      # doctest: +SKIP
 >>> s = stk.load("data/A_A_1.asc")                      # doctest: +SKIP
@@ -15,15 +17,21 @@ from typing import Sequence
 
 from ..core import Spectrum, SpectrumCollection
 from ._table import Table, build
+from .cfb import CompoundFile, is_cfb
 from .excel import read_excel
 from .matlab import is_mat, read_mat
+from .shimadzu import is_shimadzu, read_spc_shimadzu
 from .text import looks_like_text, read_text
+from .wdf import is_wdf, read_wdf
 
 # Extensions handled by each reader. Unknown extensions are tried as text if
 # the content looks like text, since instruments invent their own extensions.
 EXCEL = {".xlsx", ".xlsm", ".xls"}
 MATLAB = {".mat"}
-TEXT = {".txt", ".csv", ".tsv", ".dat", ".asc", ".xy", ".prn", ".spec", ".text"}
+WDF = {".wdf"}
+SPC = {".spc"}
+# .esp: EnSpectr Raman spectrometers (two columns, settings in "#exp_cfg=" and "#proc_cfg=" lines).
+TEXT = {".txt", ".csv", ".tsv", ".dat", ".asc", ".xy", ".prn", ".spec", ".text", ".esp"}
 
 Loaded = Spectrum | SpectrumCollection | list[Spectrum]
 
@@ -77,7 +85,22 @@ def load(
         # A .mat file holds named variables, not a table, so it has its own reader.
         result = read_mat(path, x=x, y=y)
         kind = "matlab"
-    elif ext in EXCEL or head[:2] == b"PK" or head[:4] == b"\xd0\xcf\x11\xe0":
+    elif ext in WDF or is_wdf(head):
+        # A WiRE file is binary, made of named blocks, so it has its own reader too.
+        result = read_wdf(path)
+        kind = "wdf"
+    elif is_cfb(head) and ext not in EXCEL and (
+            ext in SPC or is_shimadzu(cfb := CompoundFile(path.read_bytes(), path.name))):
+        # A compound file (D0 CF 11 E0, like old .xls) named .spc or holding UVProbe spectra: Shimadzu .spc.
+        # (":=" opens the file once and keeps it as cfb; the reader says clearly if it holds no spectra.)
+        result = read_spc_shimadzu(path, None if ext in SPC else cfb)
+        kind = "shimadzu"
+    elif ext in SPC:
+        # Any other .spc is most likely a Galactic (GRAMS) file: a different format, not read yet.
+        raise ValueError(f"{path.name}: this .spc file is not a Shimadzu UVProbe file; it is probably a "
+                         "Galactic (GRAMS) .spc, which is not supported yet. Export it as text, or send a sample "
+                         "file so a reader can be added.")
+    elif ext in EXCEL or head[:2] == b"PK" or is_cfb(head):
         # "PK" starts every .xlsx (it is a zip file); D0 CF 11 E0 starts old .xls.
         table: Table = read_excel(path, sheet=sheet)
         kind = "spreadsheet"
@@ -91,7 +114,7 @@ def load(
         )
 
     # ---- turn the table into spectra --------------------------------------
-    if not mat:
+    if kind in ("spreadsheet", "text"):
         result = build(table, name=path.stem, layout=layout, x_col=x_col, y_cols=y_cols)
 
     # Record where the data came from on every spectrum returned.

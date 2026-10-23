@@ -83,6 +83,17 @@ def test_single_column_uses_point_number():
     assert s.x[0] == 0 and s.x[-1] == 49 and s.x_unit == "Point number"
 
 
+def test_enspectr_esp_settings_kept_not_used_as_titles():
+    """EnSpectr .esp: both "#key={...}" settings lines are kept as dicts, and neither becomes the axis titles."""
+    s = stk.load(FIX / "24_enspectr.esp", verbose=False)
+    assert isinstance(s, Spectrum) and len(s) == 80
+    assert s.x_unit == "" and s.y_unit == ""                     # before: 'proc_cfg={"base_fit":' and '0,'
+    settings = s.meta["metadata"]
+    assert settings["exp_cfg"]["exp"] == 1000.0 and settings["exp_cfg"]["frames"] == 60.0   # read by name
+    assert settings["proc_cfg"]["subbackg"] == 1
+    assert s.x[np.argmax(s.y)] == pytest.approx(1000)            # the band of the made-up file
+
+
 @pytest.mark.parametrize("name", ["19_no_numbers.txt", "20_unknown_binary.wdf"])
 def test_unreadable_files_give_clear_errors(name):
     with pytest.raises(ValueError):

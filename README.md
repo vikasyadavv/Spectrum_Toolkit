@@ -31,7 +31,7 @@ In VS Code, pick `.venv/bin/python` as the interpreter / notebook kernel.
 
 ```python
 import spectrum_toolkit as stk
-s = stk.load("data/A_A_1.asc")       # text, Excel or .mat; prints what it read
+s = stk.load("data/A_A_1.asc")       # text, Excel, .mat, Renishaw .wdf, Shimadzu .spc; prints what it read
 s = s.trim(200, 1800)                # keep 200-1800 cm-1
 c = stk.combine("a.txt", "b.xlsx")   # several files -> one collection on one x axis
 c = c.despike().baseline().smooth().normalize()   # defaults: single, airpls, savgol, snv

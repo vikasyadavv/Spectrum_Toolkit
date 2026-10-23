@@ -190,8 +190,8 @@ def test_unexpected_error_is_explained(monkeypatch):
 
 def test_load_answer_always_has_the_same_fields():
     """Sizes first (like MATLAB size), the same keys for every file; summary_only leaves out the numbers."""
-    keys = ["n_spectra", "n_points", "size_Y", "size_x", "x_range", "names", "groups", "x_unit", "y_unit",
-            "notes", "history", "x", "Y"]
+    keys = ["n_spectra", "n_points", "size_Y", "size_x", "x_range", "names", "groups", "positions",
+            "position_labels", "x_unit", "y_unit", "notes", "history", "x", "Y"]
     r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")}).json()
     assert list(r) == ["data", "separate", "message"] and list(r["data"]) == keys
     assert r["data"]["size_Y"] == [2, X.size] and r["data"]["size_x"] == [X.size] and len(r["data"]["Y"]) == 2

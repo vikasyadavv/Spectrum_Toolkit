@@ -26,6 +26,7 @@ Each feature moves through: proposed → agreed → built → approved.
 | 2026-10-21 | The service keeps nothing: each request carries its data; uploads are deleted once read | No storage, no logins, nothing private left on the VM; any number of copies can run. |
 | 2026-10-21 | Only cheminations.com may call the service from a browser (CORS); the container listens on 127.0.0.1 behind the VM's web server | Other websites cannot use our server; HTTPS stays with the existing web server. |
 | 2026-10-21 | The image includes matplotlib, so the website can offer publication figures (tiff, CMYK, 1200 dpi) | Browser plots are for looking; exported figures need the same look as `stk.export`. |
+| 2026-10-23 | Our own .wdf and Shimadzu .spc readers (numpy only), not the renishawWiRE / olefile packages | No dependency we do not control; the block layout is simple and every line can be checked against real WiRE files. |
 | 2026-10-20 | Code commented line by line in plain English; every function documented | Anyone can read what each line does. See `conventions.md`. |
 
 ## Features
@@ -35,8 +36,8 @@ Each feature moves through: proposed → agreed → built → approved.
 | 0 | Project setup, core objects | approved 2026-10-20 |
 | 1 | Loading data files, round 1: text and Excel (.xlsx, .xls) | approved 2026-10-20 |
 | 1b | Loading .mat files (many variables, any names) | approved 2026-10-20 |
-| 1d | Loading JCAMP-DX, SPC, JSON | proposed |
-| 1c | Instrument files: Renishaw .wdf and others | later |
+| 1d | Loading JCAMP-DX, Galactic (GRAMS) SPC, JSON | proposed (Galactic SPC: waiting for a sample file) |
+| 1c | Instrument files: Renishaw .wdf (single, series, maps with positions), Shimadzu UVProbe .spc (UV-Vis), EnSpectr .esp settings | built 2026-10-23, waiting for approval |
 | 2 | Editing: trim, cut, select/drop spectra, combine files | approved 2026-10-21 |
 | 3 | Cosmic-ray (spike) removal: `despike` | approved 2026-10-21 |
 | 4 | Baseline correction: `baseline`, `find_baseline` (8 methods) | approved 2026-10-21 |
@@ -58,6 +59,20 @@ Each feature moves through: proposed → agreed → built → approved.
 - Files can be any size: clean text blocks are parsed by numpy in one call (1 million rows in under 1 s; 2,000 spectra × 1,000 points in 0.6 s). Messy files fall back to careful cell-by-cell reading.
 - Overrides: `sheet=`, `layout=`, `x_col=`, `y_cols=`, `delimiter=`, `decimal=`.
 - Decided: text and Excel first; `.mat` later (files hold many variables with varying names); `.wdf` later; no pandas.
+
+## Feature 1c notes (instrument files: .wdf, .spc, .esp)
+
+- Decided 2026-10-23: our own .wdf reader with numpy (`io/wdf.py`), no extra package and no Renishaw software. (The alternative, the free MIT package `renishawWiRE` 0.1.16 from January 2023, was not taken: a dependency we do not control.)
+- A .wdf file is a row of blocks (16-byte header: name, number, size). Read: `WDF1` (header: points, spectra, laser, times, title, WiRE version), `DATA`, `XLST` (x axis and unit), `YLST`, `ORGN` (X, Y, Z position and time of each spectrum), `WMAP` (map grid), `WHTL` (white-light JPEG). WiRE's settings blocks (`WXDA`, `WXDM`, `WXCS`, `WXIS`, `ZLDC`, `BKXL`) are skipped.
+- One spectrum gives a `Spectrum` named after the file; a series or map gives a `SpectrumCollection` named "Spectrum 1" ...; map positions go in `.positions` (one row per spectrum, X and Y in µm) and follow select, drop and processing. x is stored falling and turned round to rising.
+- `meta`: instrument, title, measurement (single, series, map), scan, laser_nm, accumulations, start, end, operator, position_labels, map (start, step, points along X, Y, Z), origins (every per-spectrum value, times as text), white_light (JPEG bytes).
+- A measurement stopped early gives only the spectra measured. Clear errors: damaged or cut files, no spectra, detector images (several rows per measurement), a .wdf name on another kind of file.
+- Checked on WiRE 5.6.0.30846 files (632.8 nm): silicon before/after calibration 521.7 / 520.7 cm⁻¹; maps of 17 × 20 and 21 × 18 positions at 1 µm steps.
+- `.esp` (EnSpectr): already read as text; fixed: the second settings line (`#proc_cfg={...}`) was taken as the column titles. Both `#exp_cfg` and `#proc_cfg` are now kept as dicts in `meta["metadata"]` (e.g. `exp`, `frames`, `subbackg`). Their units are not stated in the file, so nothing is converted or guessed.
+- **Shimadzu UVProbe .spc** (`io/shimadzu.py`, on our own compound-file reader `io/cfb.py`, following Microsoft's [MS-CFB] layout; no extra package). These .spc files are Microsoft compound files (the container of old .xls files), not Galactic SPC. Each data set: `X Data.1` / `Y Data.1` (8-byte numbers), the method pages (`PageTexts0-4`: wavelength range, scan speed, sampling interval, instrument, measuring mode, slit width, ...) and `DataSetHeaderInfo`. x is the wavelength in nm, stored falling, turned round to rising; the y unit is the method's "Measuring Mode" (Absorbance). `meta`: instrument, software, measuring_mode, method (every page by name), header_texts (kept as found: their meaning is not stated). Several data sets: a collection (same x) or a list (different x).
+- Compound files named .xls (or .xlsx/.xlsm) still go to the spreadsheet reader; other compound files are checked for UVProbe spectra first. A .spc that is not a compound file (most likely Galactic SPC) gives a clear "not supported yet" message.
+- Checked on UVProbe 2.70 files from a UV-2450: gold nanoparticles have their plasmon band at 520.0 nm; L-cysteine shows no visible band.
+- Not yet: map images (a picture of a band height at each position), exposure time and other settings inside WiRE's settings blocks, detector-image files, Galactic SPC.
 
 ## Feature 1b notes (.mat)
 
@@ -183,6 +198,9 @@ After the fixes: no failures, warnings or non-finite results; only the expected 
 - `CV+RhB+MB_data cliped from 1600 to 1700.xlsx`: 35 spectra as x/y pairs, 40 points, 1,600–1,700 cm⁻¹.
 - `CV10-4M.xlsx`, `RhB10-4M.xlsx`: 14 and 11 spectra as x/y pairs; x axes shifted against each other and against `MB 10-4M.xlsx` by up to 0.57 cm⁻¹.
 - `CV+RhB+MB.xlsx`: 35 x/y pairs, step 2.74 cm⁻¹, same grid but two columns have rows deleted in the middle.
+- `*.wdf` (WiRE 5.6, 632.8 nm, 1006 points): `silicon quick caliberation.wdf` / `_2.wdf` (silicon before and after calibration, 521.7 / 520.7 cm⁻¹, from -138 cm⁻¹), `con-stem_single.wdf`, `con-stem_single_later_gud.wdf` (band at 1000), `tablet_1.wdf` (large background, about 59,000 counts), maps `con-stem_map_later.wdf` (17 × 20) and `pga-stem_map.wdf` (21 × 18), 1 µm steps, with white-light images.
+- `*.spc` (Shimadzu UVProbe 2.70, UV-2450, absorbance, 0.5 nm steps): `AuNP6_400ul_water_2.6ml.spc` (gold nanoparticles, plasmon band at 520 nm, 190-900 nm), `L_cys_1mM_3ml_1.spc` (190-900 nm) and `_2.spc` (200-900 nm).
+- `*.esp` (EnSpectr): three single spectra, 2,575-2,900 points up to 5,364, settings in `#exp_cfg` / `#proc_cfg` (e.g. exp 2000, frames 60 in `... 2000_60.esp`).
 - `SINGLECELL-KD_5_100mW_1-map_Copy.txt`: map, 1,116 spectra × 1,015 points as X, Y, Wave, Intensity rows (31 × 36 grid, 1.2 µm step). Map reading postponed.
 - `spikeRemoval.m` (E. Kalkan, histogram despiking) and `baseline.m` (asymmetric least squares, Eilers & Boelens 2005): the MATLAB methods in use so far.
 - `main.m`, `separation1.tiff`: existing MATLAB PCA workflow and its figure (reference for later PCA work).

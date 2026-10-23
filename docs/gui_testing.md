@@ -33,6 +33,10 @@ and `size_x`, then names, notes and history, and the numbers last. Set
 - [ ] A7 `baseline.m` → code 422, "No numeric data found"
 - [ ] A8 the SINGLECELL map file → code 422, "looks like a map" (takes a few seconds)
 - [ ] A9 an empty text file → 422 "The uploaded file is empty"
+- [ ] A10 `silicon quick caliberation_2.wdf` → 1 spectrum, 1006 points; notes name "Renishaw WiRE 5.6.0.30846", laser 632.8 nm, x reversed; the strongest point near 520.7
+- [ ] A11 `pga-stem_map.wdf` with summary_only = true → size_Y [378, 1006], notes "Map of 21 x 18 positions"; position_labels ["X (µm)", "Y (µm)"]. Without summary_only: "positions" has 378 rows of [X, Y]
+- [ ] A13 `AuNP6_400ul_water_2.6ml.spc` → 1 spectrum, 1421 points, x_unit "Wavelength (nm)", y_unit "Absorbance"; notes name "Shimadzu UVProbe 2.70" and "UV-2400PC Series"; the highest point between 400 and 800 nm at 520
+- [ ] A12 `800ul NTP ACM.esp` → 1 spectrum, 2575 points, x_unit and y_unit empty (not the settings line), notes "Kept 2 non-data line(s)"
 
 ## B. Information (`/health`, `/options`)
 

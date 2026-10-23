@@ -18,6 +18,7 @@ silently.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Sequence
 
@@ -126,20 +127,38 @@ def _cell_text(cell: Any) -> str:
 
 
 def _looks_like_metadata(cells: list[str]) -> bool:
-    """True for rows like "Laser (nm)= 532" or "Acq. time: 10" (key and value)."""
+    """True for rows like "Laser (nm)= 532" or "Acq. time: 10" (key and value).
+
+    A first cell with "=" in it is a setting even when the line splits into
+    many cells, e.g. '#proc_cfg={"base_fit": 0, ...}' in EnSpectr .esp files:
+    column titles never contain "=".
+    """
     filled = [c for c in cells if c]
-    return len(filled) <= 2 and bool(filled) and (filled[0].endswith((":", "=")) or "=" in filled[0])
+    if not filled:
+        return False
+    return "=" in filled[0] or (len(filled) <= 2 and filled[0].endswith(":"))
 
 
-def parse_metadata(lines: list[str]) -> dict[str, str]:
-    """Collect "key: value" / "key = value" / "key<tab>value" lines into a dict."""
-    fields = {}
+def parse_metadata(lines: list[str]) -> dict[str, Any]:
+    """Collect "key: value" / "key = value" / "key<tab>value" lines into a dict.
+
+    Values are kept as text, except a value written as a JSON object
+    ('exp_cfg={"exp": 1000.0, ...}', as in .esp files), which becomes a dict
+    so each setting can be read by name.
+    """
+    fields: dict[str, Any] = {}
     for line in lines:
         # Drop comment marks at the start (#, %, ;, !, *).
         text = re.sub(r"^[#%;!*\s]+", "", line)
         m = re.match(r"^([^:=\t]{1,60}?)\s*[:=\t]\s*(.+)$", text)
         if m:
-            fields[m.group(1).strip()] = m.group(2).strip()
+            value = m.group(2).strip()
+            if value.startswith("{") and value.endswith("}"):    # a JSON object: read it as one
+                try:
+                    value = json.loads(value)
+                except ValueError:                               # not valid JSON after all: keep the text
+                    pass
+            fields[m.group(1).strip()] = value
     return fields
 
 
