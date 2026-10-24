@@ -420,3 +420,17 @@ def test_cheminations_preset_and_classic_colours():
     assert (look["font"], look["line_width"], look["box_color"], look["tick_sides"]) == ("Arial", 3, "#ACADAC", ("bottom", "left"))
     lines = three().plot(style="cheminations").get_lines()
     assert [to_rgb(l.get_color()) for l in lines] == [(0, 0, 0), (1, 0, 0), (0, 0, 1)]
+
+
+def test_legend_auto_max():
+    """legend "auto" shows the legend for 2 lines up to legend_auto_max (10, the Cheminations style 5)."""
+    rng = np.random.default_rng(0)
+    many = lambda n: SpectrumCollection(X, rng.normal(size=(n, X.size)))
+    assert three().plot(legend_auto_max=2).get_legend() is None
+    assert three().plot(legend_auto_max=3).get_legend() is not None
+    assert many(11).plot().get_legend() is None and many(10).plot().get_legend() is not None
+    assert many(5).plot(style="cheminations").get_legend() is not None
+    assert many(6).plot(style="cheminations").get_legend() is None             # a map gets no long legend
+    assert many(1).plot(style="cheminations").get_legend() is None
+    with pytest.raises(ValueError, match="legend_auto_max must be a whole number of 2 or more"):
+        stk.get_style(legend_auto_max=1)

@@ -61,6 +61,7 @@ KIND_OF = {"mean_band": "mean", "mean_band_color": "mean", "mean_band_alpha": "m
 def changed_value(name: str, current):
     """A value different from the current one, of the right kind for the setting."""
     special = {
+        "legend_auto_max": 2,                                   # 3 spectra: the legend goes
         "size": "single", "units": "in", "aspect": "square", "font": "DejaVu Serif", "box": "open",
         "tick_sides": ["bottom", "left"], "tick_label_sides": ["bottom"], "title_location": "left",
         "legend": False, "legend_location": "lower left", "legend_position": [0.05, 0.05],
@@ -173,6 +174,8 @@ def context_for(name: str) -> dict:
         ctx["legend_fill"] = "yellow"
     if name == "legend_position":
         ctx.pop("legend_location")
+    if name == "legend_auto_max":
+        ctx["legend"] = "auto"
     if name in ("tick_label_sides",):
         ctx["tick_label_sides"] = ["bottom", "top", "left", "right"]
     if "minor" in name:

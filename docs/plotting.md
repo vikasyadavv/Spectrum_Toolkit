@@ -3,7 +3,7 @@
 Everything a figure can show and every setting that changes how it looks.
 This file is written by `scripts/make_plotting_docs.py` from the settings in
 `src/spectrum_toolkit/style.py`, so it always lists every setting
-(389 today). Edit the script, not this file.
+(390 today). Edit the script, not this file.
 
 ## How to use settings
 
@@ -72,7 +72,7 @@ top. `cheminations` is the website's default: `publication` with Arial, larger
 text (20 pt numbers, 24 pt axis titles), a 3 pt grey box (`#ACADAC`) with ticks
 on the bottom and left only, 5 and 4 ticks, no white space left and right, 3 pt
 lines in the `classic` colours (black, red, blue, green, violet, orange, indigo,
-brown, teal, grey) and a legend (12 pt, short lines).
+brown, teal, grey) and a legend for 2 to 5 spectra (12 pt, short lines).
 
 **Fonts not installed:** a font in `FONT_TWINS` that is not installed is drawn
 with its free twin, made with exactly the same letter widths, so the layout does
@@ -479,7 +479,8 @@ When and where:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `legend` | "auto" | True, False or "auto" (shown for 2 to 10 lines) |
+| `legend` | "auto" | True, False or "auto" (shown for 2 lines up to legend_auto_max, 10 by default) |
+| `legend_auto_max` | 10 | with legend "auto": the most lines that still get a legend (a whole number of 2 or more); more lines get none |
 | `legend_location` | "best" | e.g. "best", "upper right", "lower left"; outside the box: "outside right" (or "outside"), "outside top", "outside bottom" |
 | `legend_position` | *(not set)* | exact place of the legend's corner as [x, y], 0 to 1 of the plot; overrides legend_location |
 | `legend_columns` | 1 | number of columns of legend entries |

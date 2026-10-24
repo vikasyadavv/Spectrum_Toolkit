@@ -302,7 +302,7 @@ top. `cheminations` is the website's default: `publication` with Arial, larger
 text (20 pt numbers, 24 pt axis titles), a 3 pt grey box (`#ACADAC`) with ticks
 on the bottom and left only, 5 and 4 ticks, no white space left and right, 3 pt
 lines in the `classic` colours (black, red, blue, green, violet, orange, indigo,
-brown, teal, grey) and a legend (12 pt, short lines).
+brown, teal, grey) and a legend for 2 to 5 spectra (12 pt, short lines).
 
 **Fonts not installed:** a font in `FONT_TWINS` that is not installed is drawn
 with its free twin, made with exactly the same letter widths, so the layout does
@@ -459,7 +459,8 @@ The text is set with `title`.
 
 When and where:
 
-{section(["legend", "legend_location", "legend_position", "legend_columns", "legend_order", "legend_hide"])}
+{section(["legend", "legend_auto_max", "legend_location", "legend_position", "legend_columns", "legend_order",
+          "legend_hide"])}
 
 Entry text and heading:
 

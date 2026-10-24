@@ -221,7 +221,9 @@ SETTINGS: dict[str, tuple[Any, str]] = {
                              '(e.g. "viridis", spread over the spectra) or a list of colours'),
     "cmap": ("viridis", "colour map for many spectra (more than 10) and images"),
     # legend: when and where
-    "legend": ("auto", 'True, False or "auto" (shown for 2 to 10 lines)'),
+    "legend": ("auto", 'True, False or "auto" (shown for 2 lines up to legend_auto_max, 10 by default)'),
+    "legend_auto_max": (10, 'with legend "auto": the most lines that still get a legend (a whole number of 2 or '
+                            "more); more lines get none"),
     "legend_location": ("best", 'e.g. "best", "upper right", "lower left"; outside the box: "outside right" '
                                 '(or "outside"), "outside top", "outside bottom"'),
     "legend_position": (None, "exact place of the legend's corner as [x, y], 0 to 1 of the plot; overrides legend_location"),
@@ -509,7 +511,8 @@ PRESETS: dict[str, dict[str, Any]] = {
 PRESETS["cheminations"] = {**PRESETS["publication"], "x_margin": 0, "font": "Arial", "font_size": 20,
                            "label_size": 24, "box_width": 3, "box_color": "#ACADAC", "tick_length": 5,
                            "tick_sides": ("bottom", "left"), "x_tick_count": 5, "y_tick_count": 4,
-                           "colors": "classic", "line_width": 3, "legend": True, "legend_size": 12,
+                           "colors": "classic", "line_width": 3, "legend": "auto", "legend_auto_max": 5,
+                           "legend_size": 12,
                            "legend_line_length": 0.8}
 
 _session_default: dict[str, Any] = {"preset": "clean"}   # changed by set_style()
@@ -618,6 +621,8 @@ def _check_one(name: str, value) -> None:
         except (ValueError, TypeError):
             raise ValueError(f'marker {value!r} is not a marker. Use e.g. "o", ".", "s", "^", "v", "d", "x", "+", '
                              '"*" or None.') from None
+    if name == "legend_auto_max" and (not isinstance(value, int) or isinstance(value, bool) or value < 2):
+        raise ValueError(f"legend_auto_max must be a whole number of 2 or more; got {value!r}.")
     if name.endswith("_count") and (not isinstance(value, int) or isinstance(value, bool) or value < 1):
         raise ValueError(f"{name} must be a whole number of 1 or more; got {value!r}.")
     if name.endswith("_ticks_at") and (not isinstance(value, (list, tuple)) or not all(
@@ -1349,7 +1354,7 @@ def _legend_on_top(ax, look: dict) -> None:
 
 
 def legend(ax, look: dict | None, n_lines: int, force: bool | str | None = None) -> None:
-    """Draw the legend according to the style ("auto": for 2 to 10 lines).
+    """Draw the legend according to the style ("auto": for 2 lines up to legend_auto_max).
 
     Every part has its own settings: place, columns, order, entry text, title,
     legend box (line and fill) and the size of the line and marker samples.
@@ -1357,7 +1362,8 @@ def legend(ax, look: dict | None, n_lines: int, force: bool | str | None = None)
     show = look["legend"] if look else "auto"
     if force is not None and force != "auto":
         show = force
-    if not (show is True or (show == "auto" and 1 < n_lines <= 10)):
+    most = look["legend_auto_max"] if look else 10
+    if not (show is True or (show == "auto" and 1 < n_lines <= most)):
         return
     if look is None:
         ax.legend(loc="best")

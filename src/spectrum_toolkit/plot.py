@@ -1446,7 +1446,7 @@ def _figure_legend(fig, axes, look, under_title: bool = False) -> None:
             seen.setdefault(label, handle)
     labels, handles = list(seen), list(seen.values())
     show = use["legend"]
-    if not labels or show is False or (show == "auto" and not 1 < len(labels) <= 10):
+    if not labels or show is False or (show == "auto" and not 1 < len(labels) <= use["legend_auto_max"]):
         return
     place = _FIGURE_LEGEND[use["panel_legend"]]
     by_hand = under_title and use["panel_legend"] == "figure top"
