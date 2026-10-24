@@ -81,6 +81,20 @@ def test_mean_band_and_image():
         stk.plot(c, c, kind="image")
 
 
+
+@pytest.mark.parametrize("kind", ["lines", "stack", "mean", "image"])
+def test_no_spectra_draws_an_empty_frame(kind):
+    """0 spectra (e.g. every one left out): axes, labels and title, no lines, the same x span as with lines."""
+    full = peaks(np.random.default_rng(5), 2)
+    empty = SpectrumCollection(X, np.empty((0, X.size)), x_unit="cm-1", y_unit="counts")
+    groups = None if kind == "image" else "group"                    # an image refuses color_by, as always
+    ax = stk.plot(empty, kind=kind, title="t", marks=[1000], highlight="spikes", color_by=groups)
+    assert not ax.get_lines()[1:] and len(ax.get_yticks()) == 0       # only the mark's line; no y numbers
+    assert ax.get_title() == "t" and ax.get_xlabel() == "cm-1"
+    assert ax.get_xlim() == stk.plot(full).get_xlim()                 # the axis does not jump
+    with pytest.raises(ValueError, match="emphasize"):                # a number that is not there is still wrong
+        stk.plot(empty, emphasize=[0])
+
 def test_region_zooms_x_and_y():
     """region sets the x limits, and the y limits follow the data inside it."""
     c = peaks(np.random.default_rng(4), 2)

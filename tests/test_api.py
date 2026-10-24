@@ -140,6 +140,17 @@ def test_figure_per_side_settings_and_wrong_value():
     assert r.status_code == 422 and "top_tick_alpha" in r.json()["detail"]
 
 
+
+def test_figure_with_no_spectra_is_an_empty_frame_elsewhere_refused():
+    """"Y": [] (every spectrum hidden on the page) draws an empty frame; other requests need spectra."""
+    empty = {**sample(), "Y": [], "names": [], "groups": []}
+    r = client.post("/figure", json={"data": empty, "title": "t", "format": "png", "dpi": 60})
+    assert r.status_code == 200 and r.content.startswith(b"\x89PNG"), r.text
+    r = client.post("/figure", json={"panels": [{"data": empty}, {"data": sample()}], "format": "png", "dpi": 60})
+    assert r.status_code == 200, r.text
+    r = client.post("/process", json={"data": empty, "recipe": {"steps": [["normalize", {}]]}})
+    assert r.status_code == 422 and "no spectra" in r.json()["detail"]
+
 def test_figure_wrong_highlight_is_422():
     r = client.post("/figure", json={"data": sample(), "highlight": 0})
     assert r.status_code == 422 and "highlight must be" in r.json()["detail"]

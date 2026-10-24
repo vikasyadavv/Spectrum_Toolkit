@@ -238,11 +238,20 @@ def to_json(data: Spectrum | SpectrumCollection, numbers: bool = True) -> dict:
     }
 
 
-def from_json(d: dict) -> SpectrumCollection:
-    """The JSON data format back to a collection (missing values must not be sent)."""
+def from_json(d: dict, allow_empty: bool = False) -> SpectrumCollection:
+    """The JSON data format back to a collection (missing values must not be sent).
+
+    allow_empty: accept "Y": [] (no spectra), for /figure's empty frame;
+    everywhere else data needs at least one spectrum.
+    """
     if not isinstance(d, dict) or "x" not in d or "Y" not in d:
         raise ValueError('data must be {"x": [...], "Y": [[...], ...]} (one row of Y per spectrum).')
     Y = np.asarray(d["Y"], dtype=float)
+    if Y.ndim == 1 and Y.size == 0:                              # "Y": [] means no spectra
+        if not allow_empty:
+            raise ValueError('data has no spectra ("Y" is empty); send at least one row of Y.')
+        Y = np.empty((0, len(d["x"])))                           # 0 rows, one column per x point
+        d = {**d, "positions": None}                             # no spectra, so no map positions
     if Y.ndim == 1:
         Y = Y[None, :]
     if not np.all(np.isfinite(Y)):
@@ -502,7 +511,7 @@ def _panel_items(body: dict) -> list:
     for i, panel in enumerate(items):
         if not isinstance(panel, dict) or "data" not in panel:
             raise ValueError(f'Panel {i + 1} must be a dict with "data".')
-        entry = {"data": _single_or_all(from_json(panel["data"])), "kind": panel.get("kind", "lines"),
+        entry = {"data": _single_or_all(from_json(panel["data"], allow_empty=True)), "kind": panel.get("kind", "lines"),
                  **_plot_extras(panel), **(panel.get("settings") or {})}
         if "after" in panel:                                         # kind "compare": the data after the step
             entry["after"] = _single_or_all(from_json(panel["after"]))
@@ -524,6 +533,8 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
     such as "AA;BC"), "widths", "heights", "share_x", "share_y", "title"
     (over the whole figure), "xlabel" and "ylabel" (the shared labels) are
     optional.
+    "Y": [] (no spectra, e.g. every one hidden) draws an empty frame: axes,
+    labels and title without lines.
     When a font asked for is not installed on the server, the answer has an
     "X-Warning" header saying which fonts were replaced.
     """
@@ -552,7 +563,7 @@ def figure(body: dict = Body(..., examples=[EXAMPLE_FIGURE])) -> Response:
                 ax = axes[0]
                 own = [p.get("settings") or {} for p in body.get("panels") or [{}]]
             else:
-                data = _single_or_all(from_json(body.get("data")))
+                data = _single_or_all(from_json(body.get("data"), allow_empty=True))   # no spectra: an empty frame
                 ax = plot(data, kind=body.get("kind", "lines"), style=style, **settings,
                           **_plot_extras(body))
                 own = [{}]

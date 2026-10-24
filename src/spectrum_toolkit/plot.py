@@ -96,6 +96,8 @@ def _check_color_by(color_by, kind: str, data) -> list | None:
     if kind == "image":
         raise ValueError('color_by="group" is for kind "lines", "stack" and "mean"; an image has no line colours.')
     labels = [g for item in data for g in _group_labels(item)]
+    if not labels:                                                  # no spectra at all: nothing to colour
+        return None
     if all(g == NO_GROUP for g in labels):
         raise ValueError("These spectra have no groups yet; set them with set_groups "
                          "(suggest_groups proposes some).")
@@ -187,6 +189,8 @@ def _check_marks(marks):
 
 def _inside(ranges, lines):
     """Only the ranges that overlap the x span of the drawn lines (e.g. spikes in a part cut off by trim)."""
+    if not lines:                                                   # nothing drawn: nothing to shade
+        return []
     lo = min(float(np.min(x)) for x, _ in lines)
     hi = max(float(np.max(x)) for x, _ in lines)
     return [(a, b) for a, b in ranges if max(a, b) >= lo and min(a, b) <= hi]
@@ -940,6 +944,11 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
         box_width=2, line_width=1.5, colors="matlab", tick_direction="in", grid=False,
         line_format="o--", line_alpha=[1, 0.4], marker_fill="none", fill=True.
 
+    With no spectra at all (a collection of 0 spectra, e.g. every spectrum
+    left out with drop), any kind draws an empty frame: the x axis spans the
+    data's x, y has no numbers, and the title, labels, marks, notes and
+    shaded ranges are drawn as usual.
+
     Returns the matplotlib Axes.
     """
     if not data:
@@ -953,6 +962,9 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
     if color is not None:                                           # old argument: same as line_color
         style_settings.setdefault("line_color", color)
     group_of = _check_color_by(color_by, kind, data)                # one group per spectrum, or None
+    nothing = all(len(_rows(item)[1]) == 0 for item in data)        # no spectra at all (e.g. every one left out)
+    if nothing:                                                     # an empty frame: drawn as "lines" with no lines
+        kind = "lines"
     if group_of is not None and kind == "mean":                     # one mean per group
         parts = [(g, part) for item in data for g, part in _split_groups(item)]
         data = tuple(part for _, part in parts)
@@ -1076,6 +1088,12 @@ def plot(*data: Data, kind: str = "lines", ax=None, region: tuple[float, float] 
             if kind == "stack":
                 ax.set_yticks([])                                    # absolute values mean little once shifted
             n_lines = n_total if group_of is None else len(order)
+        if nothing:                                                  # no lines: the x axis still spans the data
+            lo = min(float(x.min()) for x, _, _ in rows)
+            hi = max(float(x.max()) for x, _, _ in rows)
+            pad = ax.margins()[0] * (hi - lo)                        # the same margin as when lines are drawn
+            ax.set_xlim(lo - pad, hi + pad)
+            ax.set_yticks([])                                        # no intensities, so no numbers on y
         if highlight == "spikes":
             # spikes outside the drawn x range (cut off by trim) would stretch the axis: skip them
             _shade(ax, _inside([r for item in data for r in _spike_ranges(item)], drawn), look)

@@ -285,6 +285,12 @@ same, so the preview has exactly the layout of the download. Before a file is
 loaded, `GET /example` gives the three example spectra used in the pictures
 here.
 
+**No spectra:** with every spectrum left out (on the website: all hidden, so
+the page sends `"Y": []`), any kind draws an empty frame: the box, title and
+axis labels, the x axis over the same range as with the lines, no numbers on
+y. It can be downloaded like any figure, for example as a template. Only
+`/figure` accepts `"Y": []`; the other requests need at least one spectrum.
+
 A wrong name or value is an error that says what is allowed, for example
 `tick_alpha is a transparency from 0 (invisible) to 1 (solid); got 2.`
 
