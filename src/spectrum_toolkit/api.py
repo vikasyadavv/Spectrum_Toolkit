@@ -263,7 +263,10 @@ def from_json(d: dict, allow_empty: bool = False) -> SpectrumCollection:
                               y_unit=d.get("y_unit", ""), history=tuple(d.get("history") or ()),
                               groups=tuple(d.get("groups") or ()),
                               positions=None if positions is None else np.asarray(positions, dtype=float),
-                              meta={"position_labels": list(d.get("position_labels") or [])})
+                              meta={"position_labels": list(d.get("position_labels") or []),
+                                    # the "about" sent back with the data: its file details (file, measurement,
+                                    # settings, reading notes) stay in the answer's "about" after processing
+                                    "about": d.get("about") if isinstance(d.get("about"), dict) else None})
 
 
 def _single_or_all(c: SpectrumCollection) -> Spectrum | SpectrumCollection:

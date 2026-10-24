@@ -19,6 +19,11 @@ Each section (but file, notes and history) is a list of [label, value] pairs
 with values as text, ready to show. "text" has everything as plain text, for
 copying into a lab notebook.
 
+Data processed on the service arrives without its file's details; when it
+brings its earlier "about" along (``meta["about"]``), the file, measurement,
+settings and notes are taken from there, while the facts and the steps are
+always worked out from the data as it is now.
+
 Example:
     >>> import spectrum_toolkit as stk
     >>> info = stk.about(stk.example())
@@ -213,6 +218,19 @@ def _as_text(info: dict) -> str:
     return "\n".join(out)
 
 
+def _carried(old: Any) -> dict:
+    """The file's details from an earlier "about" (sent back by the website), checked: only text is kept."""
+    old = old if isinstance(old, dict) else {}
+    pairs = lambda v: [[str(p[0]), str(p[1])] for p in v if isinstance(p, (list, tuple)) and len(p) == 2] \
+        if isinstance(v, list) else []
+    f = old.get("file")
+    file = {"name": None if f.get("name") is None else str(f["name"]), "type": str(f.get("type") or "")} \
+        if isinstance(f, dict) else None
+    notes = [str(n) for n in old.get("notes")] if isinstance(old.get("notes"), list) else []
+    return {"file": file, "measurement": pairs(old.get("measurement")), "settings": pairs(old.get("settings")),
+            "notes": notes}
+
+
 def about(data: Spectrum | SpectrumCollection) -> dict:
     """About a Spectrum or collection: its file, facts from the numbers, the measurement, every
     instrument setting, what was assumed while reading and what was done to it; see the module
@@ -224,18 +242,19 @@ def about(data: Spectrum | SpectrumCollection) -> dict:
     else:
         raise TypeError(f"about needs a Spectrum or SpectrumCollection; got {type(data).__name__}.")
     meta = data.meta if isinstance(data.meta, dict) else {}
+    carried = _carried(meta.get("about"))                            # the file's details, after processing
     kind = meta.get("file_type")
     source = meta.get("source")
     name = Path(str(source)).name if source else None
     ext = Path(name).suffix.lower() if name else ""
     kind_name = FILE_TYPES.get(kind, str(kind) if kind else "File")
     info = {
-        "file": {"name": name, "type": kind_name + (f" ({ext})" if ext else "")} if (source or kind) else None,
+        "file": {"name": name, "type": kind_name + (f" ({ext})" if ext else "")} if (source or kind) else carried["file"],
         "data": _data_lines(np.asarray(x, dtype=float), np.asarray(Y, dtype=float), data.x_unit, data.y_unit,
                             meta, positions, groups),
-        "measurement": _measurement_lines(meta),
-        "settings": _setting_lines(meta),
-        "notes": [str(n) for n in meta.get("load_notes") or []],
+        "measurement": _measurement_lines(meta) or carried["measurement"],
+        "settings": _setting_lines(meta) or carried["settings"],
+        "notes": [str(n) for n in meta.get("load_notes") or []] or carried["notes"],
         "history": [_step_text(s) for s in data.history if isinstance(s, dict)] or [NOTHING_DONE],
     }
     info["text"] = _as_text(info)

@@ -421,3 +421,9 @@ def test_about_travels_with_every_data_answer():
     assert r["history"] == ["Nothing yet: the data as read."] and r["text"].startswith("About the data")
     done = client.post("/process", json={"data": sample(), "recipe": {"steps": [{"step": "trim", "lo": 500, "hi": 1500}]}})
     assert done.json()["data"]["about"]["history"][0].startswith("trim (lo 500, hi 1500")
+    # sent back with its "about", the file's details stay; the facts and the steps follow the processing
+    loaded = client.post("/load", files={"file": ("two.txt", text_file(2))}).json()["data"]
+    done = client.post("/process", json={"data": loaded, "recipe": {"steps": [{"step": "trim", "lo": 500, "hi": 1500}]}})
+    a = done.json()["data"]["about"]
+    assert a["file"]["name"] == "two.txt" and a["notes"] == loaded["about"]["notes"]
+    assert a["history"][0].startswith("trim") and dict(a["data"])["x"] == "501.03 – 1499.4"
