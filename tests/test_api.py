@@ -294,6 +294,11 @@ def test_figure_notes_inset_and_panels():
     assert r.status_code == 422
 
 
+def test_options_say_which_fonts_are_drawn_with_their_twin():
+    o = client.get("/options").json()["style"]
+    assert isinstance(o["font_twins"], dict) and "cheminations" in o["presets"] and "classic" in o["palettes"]
+
+
 def test_figure_warns_about_missing_fonts():
     r = client.post("/figure", json={"data": sample(), "settings": {"font": "No Such Font"}},
                     headers={"Origin": "https://cheminations.com"})

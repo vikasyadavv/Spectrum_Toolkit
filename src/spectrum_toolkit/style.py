@@ -81,6 +81,10 @@ PALETTES: dict[str, list] = {
               "#bcbd22", "#dbdb8d", "#17becf", "#9edae5"],
     # ColorBrewer "Dark2": darker colours that stay readable on white and in print.
     "dark": ["#1b9e77", "#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02", "#a6761d", "#666666"],
+    # Plain named colours, black first: black, red, blue, green, violet, orange, indigo, brown, teal,
+    # grey (violet and orange as their darker web versions, which stay readable on white).
+    "classic": ["#000000", "#ff0000", "#0000ff", "#008000", "#9400d3", "#ff8c00", "#4b0082", "#8b4513",
+                "#008080", "#808080"],
 }
 
 # MATLAB line codes (as in plot(x, y, "o--")): line types, markers and colour letters.
@@ -124,7 +128,10 @@ SETTINGS: dict[str, tuple[Any, str]] = {
                        "(0 = the data touches the box)"),
     "y_margin": (0.05, "automatic white space below and above the data, as a fraction of its height"),
     # text: the base for every text in the figure
-    "font": ("sans-serif", 'font name for all text, e.g. "Arial", "Times New Roman"; falls back if not installed'),
+    "font": ("sans-serif", 'font name for all text, e.g. "Arial", "Times New Roman"; if not installed: '
+                           "drawn with its free twin of the same letter widths (FONT_TWINS: Arial and Helvetica "
+                           "-> Liberation Sans, Times New Roman -> Liberation Serif, Courier New -> Liberation "
+                           "Mono), other fonts with a sans-serif font"),
     "font_size": (10, "base text size in points (tick labels use it unless tick_label_size is set)"),
     "font_weight": ("normal", '"normal" or "bold": all text unless a more specific _weight is set'),
     # axis labels (x and y); xlabel_... and ylabel_... (below) set one of them
@@ -497,11 +504,24 @@ PRESETS: dict[str, dict[str, Any]] = {
                "dpi": 1200, "format": "tiff"},
     "matplotlib": None,                                    # special: no changes at all
 }
+# The website's default (cheminations.com/tools/spectrum-toolkit): publication with the site owner's
+# own changes, and the "classic" colours (black, red, blue, ...) for several spectra.
+PRESETS["cheminations"] = {**PRESETS["publication"], "x_margin": 0, "font": "Arial", "font_size": 20,
+                           "label_size": 24, "box_width": 3, "box_color": "#ACADAC", "tick_length": 5,
+                           "tick_sides": ("bottom", "left"), "x_tick_count": 5, "y_tick_count": 4,
+                           "colors": "classic", "line_width": 3, "legend": True, "legend_size": 12,
+                           "legend_line_length": 0.8}
 
 _session_default: dict[str, Any] = {"preset": "clean"}   # changed by set_style()
 
 # Fonts tried after the chosen one, so a missing font never stops a plot.
 _FALLBACK_FONTS = ["Arial", "Helvetica", "Liberation Sans", "DejaVu Sans"]
+# Free fonts made with exactly the same letter widths as common commercial fonts. A figure that asks
+# for one of these on a computer without it (such as the website's server) is drawn with its twin,
+# so the layout stays the same; only the shapes of some letters differ a little.
+FONT_TWINS = {"Arial": "Liberation Sans", "Helvetica": "Liberation Sans",
+              "Times New Roman": "Liberation Serif", "Times": "Liberation Serif",
+              "Courier New": "Liberation Mono", "Courier": "Liberation Mono"}
 
 
 # Older names still accepted in styles and saved .json files: old -> new.
@@ -943,13 +963,33 @@ def _size_inches(look: dict) -> tuple[float, float]:
 _warned_fonts: set = set()
 
 
+def _installed_fonts() -> set[str]:
+    """The names of the fonts installed on this computer, as matplotlib knows them."""
+    from matplotlib import font_manager
+    return {f.name for f in font_manager.fontManager.ttflist}
+
+
+def font_twins() -> dict[str, str]:
+    """The fonts drawn with their twin here: {wanted: twin} for each font in FONT_TWINS that is not
+    installed on this computer while its twin is (on the website's server: Arial -> Liberation Sans ...)."""
+    installed = _installed_fonts()
+    return {f: t for f, t in FONT_TWINS.items() if f not in installed and t in installed}
+
+
 def _fonts(wanted: str) -> list[str]:
     """The wanted font followed by fallbacks, keeping only fonts installed on
     this computer (so matplotlib does not print a warning for each one)."""
-    from matplotlib import font_manager
-    installed = {f.name for f in font_manager.fontManager.ttflist}
+    installed = _installed_fonts()
     if wanted in ("sans-serif", "serif", "monospace"):              # generic family names always work
         return [wanted, "DejaVu Sans"]
+    twin = font_twins().get(wanted)
+    if twin:                                                        # not installed, but its twin is
+        if wanted not in _warned_fonts:
+            _warned_fonts.add(wanted)
+            import warnings
+            warnings.warn(f"Font {wanted!r} is not installed here; drawn with {twin!r}, which has the same "
+                          "letter widths (the layout is the same).", stacklevel=4)
+        return [twin, "DejaVu Sans"]                                 # DejaVu Sans: symbols the twin lacks
     # DejaVu Sans (always installed with matplotlib) comes last: it has symbols
     # such as ⁻ ¹ ° that some fonts lack, and matplotlib takes missing symbols
     # from the next font in the list.
@@ -963,14 +1003,15 @@ def _fonts(wanted: str) -> list[str]:
 
 
 def missing_fonts(look: dict | None) -> list[str]:
-    """The fonts a style asks for that are not installed here (another font is used for them)."""
+    """The fonts a style asks for that are not installed here and have no twin installed (another
+    font is used for them). Fonts drawn with their twin (see font_twins) are not missing."""
     if look is None:
         return []
-    from matplotlib import font_manager
-    installed = {f.name for f in font_manager.fontManager.ttflist}
+    installed, twins = _installed_fonts(), font_twins()
     wanted = {value for name, value in look.items()
               if (name == "font" or name.endswith("_font")) and isinstance(value, str)}
-    return sorted(f for f in wanted if f not in installed and f not in ("sans-serif", "serif", "monospace"))
+    return sorted(f for f in wanted
+                  if f not in installed and f not in twins and f not in ("sans-serif", "serif", "monospace"))
 
 
 def setting(look: dict, key: str, axis: str | None = None, side: str | None = None):
@@ -1434,4 +1475,5 @@ def export(fig_or_ax, name: str | Path = "figure", *, folder: str | Path | None 
     return path
 
 
-__all__ = ["get_style", "set_style", "save_style", "style_file", "export", "to_rgba", "SETTINGS", "PRESETS", "PALETTES", "SIZES"]
+__all__ = ["get_style", "set_style", "save_style", "style_file", "export", "to_rgba", "font_twins", "SETTINGS",
+           "PRESETS", "PALETTES", "SIZES", "FONT_TWINS"]

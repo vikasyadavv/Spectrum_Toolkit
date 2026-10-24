@@ -46,6 +46,11 @@ and reacts: undo and redo, preview timing, pop-ups, dragging) is in the page's o
 - **All hidden:** the page sends `"Y": []` and the toolkit draws an empty frame (box, title, axis
   labels; the x axis as with lines, no numbers on y), for every kind. It can be downloaded like
   any figure, for example as a template. Before 2026-10-24 "Hide all" kept the first spectrum.
+- **Default style:** the page starts with the toolkit's preset `cheminations` (publication with the
+  site owner's changes and the `classic` colours: black, red, blue, green, violet, orange, indigo ...).
+- **Fonts:** the server has only free fonts; Arial, Helvetica, Times New Roman and Courier New are
+  drawn with their Liberation twins (same letter widths). `/options` gives them as `"font_twins"`,
+  and the page says so in grey under the Font setting instead of a warning under the figure.
 - **Colours:** the colour of each spectrum in the list comes from `POST /colors`, the same rule
   the figure uses, so the page has no copy of the colour rule.
 

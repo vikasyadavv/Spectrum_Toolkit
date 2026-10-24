@@ -395,3 +395,28 @@ def test_tick_positions_count_and_legend_hide_and_outside():
                         ("legend_hide", 1)):
         with pytest.raises(ValueError, match=name):
             c.plot(**{name: value})
+
+
+def test_font_twins_on_a_computer_without_arial(monkeypatch):
+    """As on the website's server: Arial is drawn with Liberation Sans (same letter widths), Times New Roman
+    with Liberation Serif, and neither counts as missing; a font without a twin still does."""
+    from spectrum_toolkit import style
+    monkeypatch.setattr(style, "_installed_fonts", lambda: {"Liberation Sans", "Liberation Serif", "DejaVu Sans"})
+    monkeypatch.setattr(style, "_warned_fonts", set())
+    assert style.font_twins() == {"Arial": "Liberation Sans", "Helvetica": "Liberation Sans",
+                                  "Times New Roman": "Liberation Serif", "Times": "Liberation Serif"}
+    with pytest.warns(UserWarning, match="same letter widths"):
+        assert style._fonts("Arial") == ["Liberation Sans", "DejaVu Sans"]
+    with pytest.warns(UserWarning, match="Liberation Serif"):
+        assert style._fonts("Times New Roman")[0] == "Liberation Serif"   # a serif font stays serif
+    assert style.missing_fonts(stk.get_style("matlab")) == []          # MATLAB asks for Arial
+    assert style.missing_fonts(stk.get_style(font="No Such Font", title_font="Times")) == ["No Such Font"]
+
+
+def test_cheminations_preset_and_classic_colours():
+    """The website's default: publication with the owner's changes; several spectra black, red, blue ..."""
+    look = stk.get_style("cheminations")
+    assert look["box"] == "closed" and look["size"] == (16, 11)       # from publication
+    assert (look["font"], look["line_width"], look["box_color"], look["tick_sides"]) == ("Arial", 3, "#ACADAC", ("bottom", "left"))
+    lines = three().plot(style="cheminations").get_lines()
+    assert [to_rgb(l.get_color()) for l in lines] == [(0, 0, 0), (1, 0, 0), (0, 0, 1)]

@@ -66,8 +66,20 @@ A wrong name or value is an error that says what is allowed, for example
 
 ## Presets
 
-`clean` (default), `publication`, `matlab`, `matplotlib`; see the top of
-`style.py` for what each sets. Every setting below can be changed on top.
+`clean` (default), `publication`, `matlab`, `matplotlib`, `cheminations`; see
+the top of `style.py` for what each sets. Every setting below can be changed on
+top. `cheminations` is the website's default: `publication` with Arial, larger
+text (20 pt numbers, 24 pt axis titles), a 3 pt grey box (`#ACADAC`) with ticks
+on the bottom and left only, 5 and 4 ticks, no white space left and right, 3 pt
+lines in the `classic` colours (black, red, blue, green, violet, orange, indigo,
+brown, teal, grey) and a legend (12 pt, short lines).
+
+**Fonts not installed:** a font in `FONT_TWINS` that is not installed is drawn
+with its free twin, made with exactly the same letter widths, so the layout does
+not change: Arial and Helvetica with Liberation Sans, Times New Roman with
+Liberation Serif, Courier New with Liberation Mono. The website's server has
+only the twins; `/options` lists the ones in use (`"font_twins"`), and only a
+font with no twin installed gives the "not installed" warning.
 
 ## The naming rule
 
@@ -82,7 +94,7 @@ The last word of a setting name always means the same:
 | `_size` | text or marker size | points |
 | `_weight` | text thickness | `"normal"` or `"bold"` |
 | `_italic` | slanted text | true / false |
-| `_font` | font name | e.g. `"Arial"`, `"Times New Roman"`; falls back if not installed |
+| `_font` | font name | e.g. `"Arial"`, `"Times New Roman"`; if not installed, its twin (see **Presets**) |
 | `_length` | tick length | points |
 | `_pad` | distance to the next element | points |
 | `_rotation` | text angle | degrees, e.g. 45 or 90 |
@@ -168,7 +180,7 @@ Website (`/figure`), next to `"data"`:
 
 | Setting | Default | What it does |
 |---|---|---|
-| `font` | "sans-serif" | font name for all text, e.g. "Arial", "Times New Roman"; falls back if not installed |
+| `font` | "sans-serif" | font name for all text, e.g. "Arial", "Times New Roman"; if not installed: drawn with its free twin of the same letter widths (FONT_TWINS: Arial and Helvetica -> Liberation Sans, Times New Roman -> Liberation Serif, Courier New -> Liberation Mono), other fonts with a sans-serif font |
 | `font_size` | 10 | base text size in points (tick labels use it unless tick_label_size is set) |
 | `font_weight` | "normal" | "normal" or "bold": all text unless a more specific _weight is set |
 
@@ -536,7 +548,7 @@ Colours:
 | `cmap` | "viridis" | colour map for many spectra (more than 10) and images |
 | `line_color` | *(not set)* | spectrum line colour (or a list, one per spectrum); None = the colours of colors |
 
-Palettes for `colors`: `matlab`, `matplotlib`, `colorblind`, `black`, `tab20`, `dark`; or any
+Palettes for `colors`: `matlab`, `matplotlib`, `colorblind`, `black`, `tab20`, `dark`, `classic`; or any
 matplotlib colour map name, such as `"viridis"`, `"plasma"` or `"coolwarm"`,
 whose colours are spread evenly over the spectra (useful for a series, e.g.
 increasing temperature). With more than 10 spectra the colours always come

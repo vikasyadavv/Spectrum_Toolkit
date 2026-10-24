@@ -382,7 +382,8 @@ def options() -> dict:
         "steps": steps,
         "style": {"settings": {k: {"default": _plain(v), "meaning": m} for k, (v, m) in style.SETTINGS.items()},
                   "presets": {k: _plain(v) for k, v in style.PRESETS.items()},
-                  "palettes": _plain(style.PALETTES), "sizes_cm": _plain(style.SIZES)},
+                  "palettes": _plain(style.PALETTES), "sizes_cm": _plain(style.SIZES),
+                  "font_twins": style.font_twins()},                # fonts drawn with their twin on this server
         "figure_kinds": ["lines", "stack", "mean", "image"],
         "figure_formats": ["png", "tiff", "jpg", "pdf", "svg", "eps"],
         "max_upload_mb": MAX_UPLOAD // (1024 * 1024),
