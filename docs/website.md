@@ -46,6 +46,15 @@ and reacts: undo and redo, preview timing, pop-ups, dragging) is in the page's o
 - **All hidden:** the page sends `"Y": []` and the toolkit draws an empty frame (box, title, axis
   labels; the x axis as with lines, no numbers on y), for every kind. It can be downloaded like
   any figure, for example as a template. Before 2026-10-24 "Hide all" kept the first spectrum.
+- **Wrong values:** the toolkit refuses a wrong setting with a message that starts with the setting's
+  name (422); the page shows it under that setting, keeps the last good picture, and says "Not
+  applied" in the status line. While it is refused no figure can be drawn, so as soon as anything
+  else changes (another setting, the plot kind, a spectrum shown or hidden, the style), that setting
+  goes back to the style's value, its row is drawn again, and the status line says so, e.g. "line
+  color 0.8 was not valid: back to the style's value · Updated · 1.6 s". A value the page refuses
+  itself (a mistyped position or range under Annotate) was never kept, so the last valid value stays.
+  A new window size alone is not a change. The toolkit keeps nothing between requests, so this
+  fallback is the page's: the toolkit's part is naming the wrong setting.
 - **Default style:** the page starts with the toolkit's preset `cheminations` (publication with the
   site owner's changes and the `classic` colours: black, red, blue, green, violet, orange, indigo ...).
 - **Fonts:** the server has only free fonts; Arial, Helvetica, Times New Roman and Courier New are

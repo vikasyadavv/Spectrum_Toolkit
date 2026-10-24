@@ -108,6 +108,7 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] I3 `"kind": "mean",` (mean ± spread)
 - [ ] I4 `"kind": "image",` (all spectra as a colour map; best with wt_raw.mat)
 - [ ] I5 no spectra: in `"data"` set `"Y": []` (and `"names": []`); every kind gives an empty frame (box, labels, title, no lines). The same data in `/process` answers 422 "data has no spectra".
+- [ ] I6 (website page) type a wrong value, e.g. line color 0.8 in "Find any setting": "Not applied", the error under the setting; then change anything else (e.g. Stack): the figure follows, the setting is back to the style's value, the status line says so.
 
 ## J. Styles
 
