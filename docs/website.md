@@ -46,6 +46,12 @@ and reacts: undo and redo, preview timing, pop-ups, dragging) is in the page's o
 - **All hidden:** the page sends `"Y": []` and the toolkit draws an empty frame (box, title, axis
   labels; the x axis as with lines, no numbers on y), for every kind. It can be downloaded like
   any figure, for example as a template. Before 2026-10-24 "Hide all" kept the first spectrum.
+- **About tab:** shows the toolkit's `"about"` from the data answer (see `stk.about`): tiles for the
+  facts, Measurement, All instrument settings (folded), While reading and Done to the data, and
+  "Copy as text" (the toolkit's `text`). After processing, the facts and the steps come from the
+  processed answer; the file, measurement, settings and reading notes stay those of the file
+  (the data sent back for processing carries no file details). The file name shown is the
+  browser's own (the server keeps only a safe version of it).
 - **Wrong values:** the toolkit refuses a wrong setting with a message that starts with the setting's
   name (422); the page shows it under that setting, keeps the last good picture, and says "Not
   applied" in the status line. While it is refused no figure can be drawn, so as soon as anything

@@ -246,7 +246,7 @@ def test_colors_tell_the_line_colours():
 def test_load_answer_always_has_the_same_fields():
     """Sizes first (like MATLAB size), the same keys for every file; summary_only leaves out the numbers."""
     keys = ["n_spectra", "n_points", "size_Y", "size_x", "x_range", "names", "groups", "positions",
-            "position_labels", "x_unit", "y_unit", "notes", "history", "x", "Y"]
+            "position_labels", "x_unit", "y_unit", "notes", "history", "about", "x", "Y"]
     r = client.post("/load", files={"file": ("two.txt", text_file(2), "text/plain")}).json()
     assert list(r) == ["data", "separate", "message", "variables"] and list(r["data"]) == keys
     assert r["variables"] is None                                # only .mat files have variables
@@ -377,6 +377,7 @@ def test_example_spectra_for_the_preview():
     r = client.get("/example").json()
     assert r["kind"] == "lines" and r["data"]["names"] == ["Sample A", "Sample B", "Sample C"]
     assert r["data"]["size_Y"] == [3, 1400]
+    assert r["data"]["about"]["file"]["type"] == "Example spectra (made up)"     # "about" travels with the data
     preview = client.post("/figure", json={**r, "style": "publication", "dpi": 60, "format": "png"})
     full = client.post("/figure", json={**r, "style": "publication", "dpi": 120, "format": "png"})
     from PIL import Image
@@ -411,3 +412,12 @@ def test_figure_color_by_panels_by_group_and_compare():
     assert client.post("/figure", json=body).status_code == 200
     r = client.post("/figure", json={"data": sample(3), "color_by": "group"})
     assert r.status_code == 422 and "no groups yet" in r.json()["detail"]
+
+
+def test_about_travels_with_every_data_answer():
+    """/load and /process answer "about", worked out from the full data; the history follows the processing."""
+    r = client.post("/load", files={"file": ("two.txt", text_file(2))}).json()["data"]["about"]
+    assert r["file"] == {"name": "two.txt", "type": "Text (.txt)"} and r["data"][0] == ["Spectra", "2"]
+    assert r["history"] == ["Nothing yet: the data as read."] and r["text"].startswith("About the data")
+    done = client.post("/process", json={"data": sample(), "recipe": {"steps": [{"step": "trim", "lo": 500, "hi": 1500}]}})
+    assert done.json()["data"]["about"]["history"][0].startswith("trim (lo 500, hi 1500")

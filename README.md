@@ -35,6 +35,7 @@ s = stk.load("data/A_A_1.asc")       # text, Excel, .mat, Renishaw .wdf, Shimadz
 s = s.trim(200, 1800)                # keep 200-1800 cm-1
 stk.mat_variables("data/wt_raw.mat") # what a .mat file holds: every variable, its size, what fits
 c = stk.combine("a.txt", "b.xlsx")   # several files -> one collection on one x axis
+print(stk.about(c)["text"])          # file, facts, measurement, instrument settings, what was done
 c = c.despike().baseline().smooth().normalize()   # defaults: single, airpls, savgol, snv
 d = c.derivative(n=2)                # 2nd derivative (Savitzky-Golay)
 c.plot("stack", xlabel="Raman shift (cm⁻¹)")       # also "lines", "mean", "image"

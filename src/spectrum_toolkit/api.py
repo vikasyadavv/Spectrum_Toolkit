@@ -118,6 +118,7 @@ except ImportError as e:                                         # only the web 
     raise ImportError('The web service needs: pip install "spectrum-toolkit[api]"') from e
 
 from . import __version__
+from .about import about
 from .core import Spectrum, SpectrumCollection
 from .io import load
 from .recipe import Recipe
@@ -233,6 +234,7 @@ def to_json(data: Spectrum | SpectrumCollection, numbers: bool = True) -> dict:
         "y_unit": data.y_unit,
         "notes": list(notes or []),                              # what was assumed while reading
         "history": _plain(list(data.history)),                   # every processing step, with its settings
+        "about": _plain(about(data)),                            # file, facts, measurement, settings, notes, steps
         "x": _numbers(data.x) if numbers else None,
         "Y": _numbers(Y) if numbers else None,
     }

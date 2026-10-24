@@ -28,8 +28,10 @@ def example() -> SpectrumCollection:
     for k in range(3):                                           # each sample 10 % weaker than the one before
         y = sum(h * (1 - 0.1 * k) / (1 + ((x - c) / w) ** 2) for c, h, w in bands)
         Y.append(y + rng.normal(0, 0.01, x.size))
+    note = ("Three made-up Raman-like spectra (bands at 915, 1180, 1370, 1585 and 1620 cm⁻¹, a little noise): "
+            "the same ones the documentation pictures use.")
     return SpectrumCollection(x, np.array(Y), names=["Sample A", "Sample B", "Sample C"], x_unit="Raman shift (cm⁻¹)",
-                              y_unit="Intensity")
+                              y_unit="Intensity", meta={"file_type": "example", "load_notes": [note]})
 
 
 __all__ = ["example"]
