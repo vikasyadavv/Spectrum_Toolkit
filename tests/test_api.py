@@ -216,6 +216,22 @@ def test_service_refuses_to_start_without_a_required_key(tmp_path):
     assert run.returncode == 0 and run.stdout.strip() == "abc123"
 
 
+def test_colors_tell_the_line_colours():
+    """POST /colors: the colours /figure draws (palette, groups, own colours); clear messages for wrong input."""
+    r = client.post("/colors", json={"n": 3, "style": "clean"})
+    assert r.status_code == 200 and r.json() == {"colors": ["#1f77b4", "#ff7f0e", "#2ca02c"]}
+    r = client.post("/colors", json={"n": 3, "style": "publication", "settings": {"colors": "colorblind"},
+                                     "groups": ["CV", "CV", "MB"]})
+    assert r.json()["colors"] == ["#0072b2", "#0072b2", "#e69f00"]                  # one colour per group
+    r = client.post("/colors", json={"n": 2, "settings": {"line_color": [None, "red"]}})
+    assert r.json()["colors"][1] == "#ff0000"                                       # own colour wins
+    assert len(client.post("/colors", json={"n": 40}).json()["colors"]) == 40       # many: from the colour map
+    r = client.post("/colors", json={"n": 0})
+    assert r.status_code == 422 and '"n" must be a whole number' in r.json()["detail"]
+    r = client.post("/colors", json={"n": 2, "settings": {"colors": "rainbowz"}})
+    assert r.status_code == 422 and "rainbowz" in r.json()["detail"]                # a wrong palette is named
+
+
 def test_load_answer_always_has_the_same_fields():
     """Sizes first (like MATLAB size), the same keys for every file; summary_only leaves out the numbers."""
     keys = ["n_spectra", "n_points", "size_Y", "size_x", "x_range", "names", "groups", "positions",

@@ -453,6 +453,55 @@ def _line_colors(look, plt, n: int) -> list:
     return [palette[k % len(palette)] for k in range(n)]
 
 
+def line_colors(n: int, style: str | dict | None = None, groups=None, **settings: Any) -> list[str]:
+    """The colour plot draws each of n spectra in, as "#rrggbb".
+
+    The same steps as plot: the palette of the style (``colors``) in order,
+    repeating; more than 10 spectra take their colours from the colour map
+    (``cmap``); with ``groups`` (one per spectrum, as for ``color_by="group"``)
+    every group gets one colour, in the order the groups first appear, and
+    spectra without a group ("" or None) share one; then ``line_color`` (one
+    colour, or one per spectrum, None = the palette colour) and colour letters
+    in ``line_format`` replace those colours. Transparency is left out.
+
+    Useful to match colours elsewhere (a table, a second figure), and for the
+    website, which shows each spectrum's colour before drawing.
+
+    Parameters
+    ----------
+    n : how many spectra are drawn.
+    style : a preset name, a dict of settings or a style file (as for plot).
+    groups : one group name per spectrum, or None.
+    **settings : any style setting, as for plot.
+
+    >>> line_colors(3, style="clean")
+    ['#1f77b4', '#ff7f0e', '#2ca02c']
+    >>> line_colors(3, style="clean", groups=["CV", "CV", "MB"])
+    ['#1f77b4', '#1f77b4', '#ff7f0e']
+    >>> line_colors(3, style="clean", line_color=[None, "red", None])
+    ['#1f77b4', '#ff0000', '#2ca02c']
+    """
+    from matplotlib.colors import to_hex
+    from .groups import NO_GROUP
+    if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+        raise ValueError(f"n must be a whole number of spectra, 1 or more; got {n!r}.")
+    if groups is not None:
+        if not isinstance(groups, (list, tuple)) or len(groups) != n:
+            raise ValueError(f"groups must be a list with one group per spectrum ({n}); got {groups!r}.")
+        groups = [str(g) if g not in (None, "") else NO_GROUP for g in groups]   # no group: one shared colour
+    look = get_style(style, **settings)
+    plt = _plt()
+    with styled(look):                                           # the "matplotlib" preset uses matplotlib's own colours
+        if groups is None:
+            palette = _line_colors(look, plt, n)
+        else:
+            order = list(dict.fromkeys(groups))                  # groups in the order they first appear
+            by_group = _line_colors(look, plt, len(order))
+            palette = [by_group[order.index(g)] for g in groups]
+        drawn = [line_settings(look, k, palette[k])["color"] if look else palette[k] for k in range(n)]
+    return [to_hex(c, keep_alpha=False) for c in drawn]
+
+
 def _emphasized(emphasize, names: list, labels: list, n: int) -> set:
     """The spectrum numbers to emphasize (plot's emphasize), checked."""
     if emphasize is None:
@@ -1603,4 +1652,4 @@ def scatter(x, y, groups=None, *, names: list[str] | None = None, ax=None, marke
     return ax
 
 
-__all__ = ["plot", "panels", "compare", "scatter", "KINDS"]
+__all__ = ["plot", "panels", "compare", "scatter", "line_colors", "KINDS"]

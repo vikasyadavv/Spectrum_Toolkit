@@ -505,3 +505,33 @@ def test_compare_panels_beside_other_panels():
                            ({"data": raw, "after": flat, "kind": "compare", "peaks": 3}, "cannot be used")):
         with pytest.raises(ValueError, match=message):
             stk.panels([entry])
+
+
+def test_line_colors_match_the_drawn_lines():
+    """stk.line_colors gives exactly the colours plot draws: palette, colour map (> 10), groups, line_color,
+    a colour letter in line_format, and the "matplotlib" preset."""
+    from matplotlib.colors import to_hex
+    x = np.linspace(400, 1800, 50)
+
+    def drawn(n, groups=None, **kw):
+        """Plot n spectra and return each line's colour."""
+        c = SpectrumCollection(x, np.vstack([np.sin(x / 50 + k) for k in range(n)]), groups=groups or ())
+        ax = stk.plot(c, color_by="group" if groups else None, legend=False, **kw)
+        colours = [to_hex(line.get_color(), keep_alpha=False) for line in ax.get_lines()]
+        plt.close("all")
+        return colours
+
+    assert stk.line_colors(3, style="clean") == drawn(3, style="clean")                      # the palette
+    assert stk.line_colors(4, style="publication", colors="colorblind") == drawn(4, style="publication", colors="colorblind")
+    assert stk.line_colors(15, style="clean") == drawn(15, style="clean")                    # colour map for > 10
+    assert stk.line_colors(15, style="clean", cmap="plasma") == drawn(15, style="clean", cmap="plasma")
+    groups = ["CV", "CV", "MB", "", "MB"]                                                    # "" = no group: one shared colour
+    assert stk.line_colors(5, style="clean", groups=groups) == drawn(5, groups=groups, style="clean")
+    own = [None, "#123456", None]
+    assert stk.line_colors(3, style="clean", line_color=own) == drawn(3, style="clean", line_color=own)
+    assert stk.line_colors(3, style="clean", line_format=["-", "r--", "-"]) == drawn(3, style="clean", line_format=["-", "r--", "-"])
+    assert stk.line_colors(3, style="matplotlib") == drawn(3, style="matplotlib")            # matplotlib's own colours
+    with pytest.raises(ValueError, match="whole number of spectra"):
+        stk.line_colors(0)
+    with pytest.raises(ValueError, match="one group per spectrum"):
+        stk.line_colors(3, groups=["A", "B"])

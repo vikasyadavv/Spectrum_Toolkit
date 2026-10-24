@@ -160,6 +160,7 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] M16 `/style-check` with `{"style": "publication", "settings": {"line_width": 2}}` → `"style"` lists every setting and `"changed"` only the ones that differ; with `"style": "my_style.json"` → 422 (the service opens no files)
 - [ ] M20 `/style-check` with `{"style": {"preset": "matlab", "ticks": "out", "line_width": 3}, "name": "My paper style"}` → `"file"` has `"type": "spectrum-toolkit style"`, the name, `"preset": "matlab"` and only `{"tick_direction": "out", "line_width": 3}` in `"settings"`; `"renamed"` is `{"ticks": "tick_direction"}`. Send that `"file"` back as `"style"` → the same answer
 - [ ] M21 the M20 file with `"glow": 2` added to its `"settings"` → 422 naming glow; with `"lenient": true` → 200, `"skipped": ["glow"]` and a warning
+- [ ] M23 `/colors` with `{"n": 3, "style": "clean", "groups": ["CV", "CV", "MB"]}` → `"colors"`: the first two the same, the third different; with `"n": 0` → 422 naming "n"
 - [ ] M22 `GET /example` → three spectra "Sample A" to "Sample C"; paste the whole answer into `/figure` with `"dpi": 60` (a small preview) and again with `"dpi": 300` (the same picture, larger)
 
 ## Not reachable from the page yet

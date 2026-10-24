@@ -111,6 +111,13 @@ Every colour setting accepts any of these:
 CMYK colours are converted to RGB for drawing; to save the whole figure as a
 CMYK file use `color_mode="cmyk"` with tiff or jpg (see **Saving**).
 
+Which colour each spectrum gets: `stk.line_colors(n, style, groups=...)` gives
+the colour (`"#rrggbb"`) the plot draws each of n spectra in: the palette
+(`colors`) in order, the colour map (`cmap`) for more than 10 spectra, one
+colour per group with `color_by="group"`, then `line_color` and colour letters
+in `line_format`. The website asks the same through `POST /colors`, so it shows
+each spectrum's colour before drawing.
+
 ## Figure size and shape
 
 | Setting | Default | What it does |

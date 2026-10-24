@@ -25,7 +25,7 @@ browser  ->  cheminations.com/api/stk/*      Cloudflare Worker (worker/stk-worke
 ## Endpoints the website may use
 
 `GET` health, options, example; `POST` load, process-file (a file, as a form), process,
-figure, groups, style-check (JSON). Anything else, `/docs` included, answers 404 from the
+figure, groups, style-check, colors (JSON). Anything else, `/docs` included, answers 404 from the
 Worker. The toolkit's own answers (results, pictures, and its 413 / 422 / 500 messages) are
 passed on unchanged, with `Content-Type`, `Content-Disposition` (the file name) and
 `X-Warning` (fonts not installed). The Worker's own refusals use the toolkit's form,
@@ -115,7 +115,7 @@ What it means for the page:
 `worker/test/` runs the Worker file, unchanged, in a browser against a local toolkit with a
 test key: 31 checks (who may ask, every endpoint and method, wrong body types, missing and
 too-large sizes, uploads of text, .wdf and .mat files from data/, pictures and their headers,
-the toolkit's own messages, a wrong key, the VM being down, the rate limit). Browsers have the
+the toolkit's own messages, a wrong key, the VM being down, the rate limit, /colors). Browsers have the
 same `Request`, `Response` and `Headers` as Cloudflare; the page adds stand-ins only for
 Cloudflare's cache and for streamed uploads.
 

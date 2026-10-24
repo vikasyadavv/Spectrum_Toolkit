@@ -26,6 +26,7 @@ const SETTINGS = {
     'process-file': 'POST',   // a data file + processing steps in one go
     'figure': 'POST',         // spectra + plot settings -> a picture (png, tiff, pdf, ...)
     'groups': 'POST',         // propose or set which sample each spectrum belongs to
+    'colors': 'POST',         // the colour each spectrum is drawn in (shown in the list before drawing)
     'style-check': 'POST'     // check a saved style before it is used
   },
 

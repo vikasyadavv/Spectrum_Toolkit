@@ -96,6 +96,9 @@ check('figure: a PNG picture, with its file name', r.status === 200 && r.headers
   && png[1] === 0x50 && png[2] === 0x4e && r.headers.get('Content-Disposition').includes('preview.png'), `${(png.length / 1024).toFixed(0)} KB`);
 r = await visit(w, '/api/stk/figure', { method: 'POST', json: { ...example, dpi: 60, settings: { font: 'No Such Font' } } });
 check('font warning header passes', r.status === 200 && (r.headers.get('X-Warning') || '').includes('No Such Font'));
+r = await visit(w, '/api/stk/colors', { method: 'POST', json: { n: 3, style: 'clean', groups: ['CV', 'CV', 'MB'] } });
+j = await r.json(); check('colors: one colour per group', r.status === 200 && j.colors[0] === j.colors[1] && j.colors[0] !== j.colors[2], j.colors.join(' '));
+r = await visit(w, '/api/stk/colors', { method: 'POST', body: await fileForm('A_A_1.asc') }); check('a form to colors: 415', r.status === 415);
 r = await visit(w, '/api/stk/process-file', { method: 'POST',
   body: await fileForm('CV10-4M.xlsx', { recipe: '{"steps":[{"step":"baseline"}]}', summary_only: 'true' }) });
 j = await r.json(); check('process-file with a recipe', r.status === 200 && j.data.history.at(-1).step === 'baseline');

@@ -38,6 +38,9 @@ POST /style-check   JSON {"style": "publication" or {...settings...},
                     setting names are skipped and listed instead.
 GET  /example       three made-up example spectra, for trying things (and
                     for the live preview) before a file is loaded.
+POST /colors        JSON {"n": 3, "style": ..., "settings": {...}, "groups": [...]}:
+                    the colour /figure draws each of n spectra in ("#rrggbb"),
+                    so the website can show them before drawing (stk.line_colors).
 
 Data in answers always has the same fields, in this order (one row of "Y"
 per spectrum; sizes first, like MATLAB's size())::
@@ -641,6 +644,28 @@ def style_check(body: dict = Body(..., examples=[EXAMPLE_STYLE])) -> dict:
     font = _font_warning(missing_fonts(full))
     return {"style": _plain({"preset": "clean", **full}), "file": file, "changed": _plain(changed),
             "renamed": renamed, "skipped": skipped, "warnings": warnings + ([font] if font else [])}
+
+
+@api.post("/colors")
+def colors(body: dict = Body(..., examples=[{"n": 3, "style": "publication", "settings": {"colors": "colorblind"},
+                                              "groups": None}])) -> dict:
+    """The colour each of n spectra is drawn in by /figure: {"colors": ["#1f77b4", ...]}.
+
+    "n" is how many spectra are drawn; "style" and "settings" as for /figure;
+    "groups" (optional) one group per spectrum, as with "color_by": "group".
+    The same rule as the figures (stk.line_colors), so the website never keeps
+    a copy of it.
+    """
+    from .plot import line_colors
+    n = body.get("n")
+    if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 100000:
+        raise ValueError(f'"n" must be a whole number of spectra, from 1 to 100000; got {n!r}.')
+    settings = body.get("settings") or {}
+    if not isinstance(settings, dict):
+        raise ValueError('"settings" must be a dict of settings, e.g. {"colors": "colorblind"}.')
+    style = _style(body)
+    with _FIGURE_LOCK:                                           # matplotlib's settings are shared: one at a time
+        return {"colors": line_colors(n, style, groups=body.get("groups"), **settings)}
 
 
 @api.get("/example")
