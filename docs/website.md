@@ -31,6 +31,24 @@ passed on unchanged, with `Content-Type`, `Content-Disposition` (the file name) 
 `X-Warning` (fonts not installed). The Worker's own refusals use the toolkit's form,
 `{"detail": "..."}`, so the page reads every message the same way.
 
+## The page and the toolkit: who does what
+
+The rule: a feature goes into the toolkit first; only what cannot live there (how the page looks
+and reacts: undo and redo, preview timing, pop-ups, dragging) is in the page's own script.
+
+- **Which spectra are drawn (Spectrum tab):** showing and hiding is the page's choice of what to
+  look at. The service keeps nothing, so every preview and download carries its own data, and the
+  page sends only the shown spectra, in the order shown, with their new names, own lines
+  (`line_color`, `line_width`, `line_style`, `line_alpha`, one value per spectrum sent), stars
+  (`emphasize`, counted among the spectra sent) and groups (`color_by: "group"`). Preview and
+  download use exactly the same choice, so a hidden spectrum is never in the downloaded file.
+  Picking spectra is the toolkit's own `select` / `drop` in Python.
+- **All hidden:** the page sends `"Y": []` and the toolkit draws an empty frame (box, title, axis
+  labels; the x axis as with lines, no numbers on y), for every kind. It can be downloaded like
+  any figure, for example as a template. Before 2026-10-24 "Hide all" kept the first spectrum.
+- **Colours:** the colour of each spectrum in the list comes from `POST /colors`, the same rule
+  the figure uses, so the page has no copy of the colour rule.
+
 ## Setting it up (once)
 
 ### 1. The key, on the VM

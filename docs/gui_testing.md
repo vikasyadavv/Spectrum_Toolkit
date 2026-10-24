@@ -107,6 +107,7 @@ Recipe: `{"steps":[{"step":"normalize","method":"NAME"}]}` with NAME =
 - [ ] I2 `"kind": "stack",`
 - [ ] I3 `"kind": "mean",` (mean ± spread)
 - [ ] I4 `"kind": "image",` (all spectra as a colour map; best with wt_raw.mat)
+- [ ] I5 no spectra: in `"data"` set `"Y": []` (and `"names": []`); every kind gives an empty frame (box, labels, title, no lines). The same data in `/process` answers 422 "data has no spectra".
 
 ## J. Styles
 
